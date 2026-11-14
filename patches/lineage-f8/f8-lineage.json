@@ -1,0 +1,255 @@
+{
+  "schema": 1,
+  "profile": "f8",
+  "set": "lineage",
+  "imageSha256": "f1ce7c1add2dae73c681b29ccb86068864d5f42886bc1c22d249891f3bdf6261",
+  "revision": "lineage-f8-1",
+  "files": [
+    {
+      "name": "OneOSFoldCutout.apk",
+      "sha256": "a2efd9b1170675a011ce4e667dcdd1b277c419617656dd3c1b77ff537f000afd",
+      "bytes": 8538,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "OneOSGuest.apk",
+      "sha256": "0541e053377589e8bcc036996c0fb8d8f094207bcd9370922141f2c0b44e2f09",
+      "bytes": 8807959,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "OneOSPhoneInjection.apk",
+      "sha256": "f6e6cc651468f33182f9190c89c3432c8063d06040376672110fef62a320df52",
+      "bytes": 8615,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "OneOSPixelStatusBar.apk",
+      "sha256": "480064079014c5d5859660685b8498fe37d39c471c02e0c6156cc9a29f38a98c",
+      "bytes": 8538,
+      "source": "gh:thatjoshguy67/OneOS-files:fold8-experimental"
+    },
+    {
+      "name": "OneOSTabletQs.apk",
+      "sha256": "53ce08cda6a9c2e6933a576019a33ce81f7e667d23d4f1e88157275b136fcae1",
+      "bytes": 8538,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "adservices_payload.img",
+      "sha256": "8a02e6bba2cea600545ea4e2a737fa33920cabbdcbcac59b714095ca4dfbd39b",
+      "bytes": 22671360,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "appsearch_payload.img",
+      "sha256": "88293323c2b935c2e88d3b7f94da512068bdecb2332e5d95a7d51c48321548fa",
+      "bytes": 4456448,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "art_payload.img",
+      "sha256": "aacca5321dab4b3e0375db58a9934f7a97c92726fe000ca14ec658bcc2a5559a",
+      "bytes": 30756864,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "bt_payload.img",
+      "sha256": "373010883963f1c3b599f3ce1932175a5f595cf23a545436c1a1fb34ed22794c",
+      "bytes": 26103808,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "configinfrastructure_payload.img",
+      "sha256": "c6ed8d24bb1456f8d8b6fa6fca8aecbd3d447b2360cdb2b27cb212f62c242747",
+      "bytes": 5832704,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "conscrypt_payload.img",
+      "sha256": "b13193e04f1d0cdd4a56050f407ba3c7462f3a67ed4afacdee621b19ac569779",
+      "bytes": 5783552,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "crashrecovery_payload.img",
+      "sha256": "9fa45636eda370af4330b21c0152d9911ac187a77cae974d3a542f282cc07dc5",
+      "bytes": 380928,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "extservices_payload.img",
+      "sha256": "bfaf436768693e7c70062d19a2b61657f1392b8962dc924d8a665c626a0cb912",
+      "bytes": 24952832,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "framework_patched.jar",
+      "sha256": "7061acea74028dc27b79933b1f3c96a5f113be95bbf9ce111dd0efcf9eaa1395",
+      "bytes": 45106909,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "guards.txt",
+      "sha256": "6433c229d8e9aa7243e244b6196680a8c1475161f27b1e3c3e18e44c340d49f9",
+      "bytes": 1618,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "healthfitness_payload.img",
+      "sha256": "28622e1658232edfbc3c05dd90be6d44e140593a7c06343268b2791fc6aa0102",
+      "bytes": 17551360,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "i18n_payload.img",
+      "sha256": "adcf96e676fa1307eceea2f6c069a4c4a52f4fedf3713293d145a0cd12f25613",
+      "bytes": 38801408,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "ims-ext-common_patched.jar",
+      "sha256": "67dd101873bafdf90336fcf07e4576655cbd0c404f076a4f41608a40fc9cef50",
+      "bytes": 199239,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "libcamera_client_patched.so",
+      "sha256": "a736ff42026ee1b6e5095349f21bfa5b01d5e765d8a2c87c05047e4798c95984",
+      "bytes": 649880,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "mediaprovider_payload.img",
+      "sha256": "cc032640846d92ee638ef52e05ef790bfb00348975ed24d8a31fd1135bebaf60",
+      "bytes": 28512256,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "nfcservices_payload.img",
+      "sha256": "5cdcb1c91612e0c80ca0206b8164a40e12afb26c48846dedc10c4085acea4396",
+      "bytes": 10252288,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "ondevicepersonalization_payload.img",
+      "sha256": "8582f64e5e3399c425ccc2a7190007f6ec1d4530d04ee71d72d2adac1b852d96",
+      "bytes": 14823424,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "oneos-apex-requires.txt",
+      "sha256": "84ebf34a0febaac6e744b67d8832d03494460af5058d6463f8e6ea38b423bd6e",
+      "bytes": 1965,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "oneos-telephony.jar",
+      "sha256": "3b7240d76a96e406e24837b06a9ae293dd26af5e64973a30179e9e4490800e67",
+      "bytes": 2420,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "oneos-telephony.sha256",
+      "sha256": "dabcd70f08d7fd392949c825b75a9523434f579f9a6fbfa3c0280f2a747ea22e",
+      "bytes": 212,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "permission_payload.img",
+      "sha256": "b41e93245094fed4ef3f8122923573f41e72dfa9fe1defffd0feccb0b89cfa2b",
+      "bytes": 29888512,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "profiling_payload.img",
+      "sha256": "762bc53e0cb53040093032e518f36907f757e5447bec0431b868b188f2506ea9",
+      "bytes": 2478080,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "rkpd_payload.img",
+      "sha256": "0c424c34f58aab6aed56ead9f8c6bba0fdc6ff601ae0dd657eb103cc6f637332",
+      "bytes": 1417216,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "runtime_payload.img",
+      "sha256": "bdfa0709054f5b23b1a80d064e4cf3fc32f751d81fd7fe11f53878da7426e856",
+      "bytes": 8736768,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "sdkext_payload.img",
+      "sha256": "d373a66a2b56c4ffcd2f62a6c9542dd7e7436d40f902ae02760aa8d6377ceb8c",
+      "bytes": 1204224,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "service.incremental_patched.so",
+      "sha256": "0235d2312e659dfb00b7bab3e6b8189e36ccd2b61d1c298f01347e8d4615bc5d",
+      "bytes": 1747080,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "services_patched.jar",
+      "sha256": "a782f9229f9d20c5a8edabb580f4758ac6cf4c5e64fb5762d2057f978dc740fc",
+      "bytes": 25208748,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "telephony-common_patched.jar",
+      "sha256": "8eeb43db3299c6735887582769f69d78fbd09a7f24c12b919d5c7017639da6db",
+      "bytes": 5668915,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "telephonycore_payload.img",
+      "sha256": "e47bdd2692863f919b63b1e995d581a32714058558c68473bbc44136724dd7f7",
+      "bytes": 4853760,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "vold_patched",
+      "sha256": "edcf391437b107dc9a86a5c1435c7aba9a572373344aa62d9c972c7ab2d36dc2",
+      "bytes": 1074408,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "wifi_payload.img",
+      "sha256": "5792ef451f842b008ead2fdb849535b5135d3cff5b181cf1cc1e9341eaaaba1e",
+      "bytes": 19214336,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "OneOSPixelDoze.apk",
+      "sha256": "4d3d9dcf685f925af6f69a74fbaa79f463e0bfcb5a1cca99eb8f257efb2cc0f8",
+      "bytes": 8538,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "libbootanimation_preapex_patched.so",
+      "sha256": "11191f7bb7c3597250a150bda7ebb1e6a87d1ce25a92c3d396fc12d4d88fff07",
+      "bytes": 118120,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "Fold8LineageUnfold.apk",
+      "sha256": "cead8f38924c55ff05c85ad68bd917e999aef00e5f5b870771e73f1403bd0f1b",
+      "bytes": 8538,
+      "source": "gh:thatjoshguy67/OneOS-files:fold8-experimental"
+    },
+    {
+      "name": "Fold8AngleRelay.dex",
+      "sha256": "ccf2fbddc462eca6d7cb7f112ca1b36620fe0ccd044ff6ba28bebe13cfe6b89e",
+      "bytes": 5552,
+      "source": "gh:fahadalijaved/OneOS-files:sets-1"
+    },
+    {
+      "name": "Fold8LineageSystemUI.apk",
+      "sha256": "d875aa6517625cd9c3800c27cce054f4a8b3bb3870b889052455f8606880b87c",
+      "bytes": 44306324,
+      "source": "gh:thatjoshguy67/OneOS-files:fold8-experimental"
+    }
+  ]
+}
