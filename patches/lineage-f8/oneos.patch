@@ -1,8 +1,8 @@
 From ed380b16059906e8893264a09df10ddf5a21834a Mon Sep 17 00:00:00 2001
 From: SadLinusGuy0 <joshskinner008@gmail.com>
 Date: Sat, 14 Nov 2026 12:53:40 +0000
-Subject: [PATCH] Discover compatible contributor patches and port Fold8 Pixel
- fixes to Lineage
+Subject: [PATCH 1/2] Discover compatible contributor patches and port Fold8
+ Pixel fixes to Lineage
 
 ---
  app-android/app/build.gradle.kts              |   6 +-
@@ -6908,6 +6908,100 @@ index 0000000..1d719f6
 + assert len(after)==len(set(after)) and set(before).issubset(after)
 + assert set(after)-set(before)==ADDED,set(after)-set(before)
 +print(hashlib.sha256(a.output.read_bytes()).hexdigest(),a.output)
+-- 
+2.56.0
+
+
+From 2be88168c44d1a3b7c76ccc156ad3f2eba532d6c Mon Sep 17 00:00:00 2001
+From: SadLinusGuy0 <joshskinner008@gmail.com>
+Date: Sat, 14 Nov 2026 12:57:12 +0000
+Subject: [PATCH 2/2] Refresh discovery on resume and retain live Lineage fold
+ posture
+
+---
+ .../com/fahadali/oneos/ui/EnvironmentActivity.kt       |  1 +
+ docs/fold8-lineage.md                                  |  2 +-
+ scripts/test-fold8-pixel.py                            | 10 ++++++++--
+ switcher/assets/oneos_switch.sh                        |  7 +++++++
+ 4 files changed, 17 insertions(+), 3 deletions(-)
+
+diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
+index 6b96480..57cd6d6 100644
+--- a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
++++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
+@@ -134,6 +134,7 @@ class EnvironmentActivity : EdgeToEdgeActivity() {
+     override fun onResume() {
+         super.onResume()
+         if (::image.isInitialized && !preview) {
++            patchDiscoveryKey = null
+             Readiness.onResume(this); render()
+             if (!rootBusy) {
+                 rootBusy = true
+diff --git a/docs/fold8-lineage.md b/docs/fold8-lineage.md
+index 2c5e097..9d23044 100644
+--- a/docs/fold8-lineage.md
++++ b/docs/fold8-lineage.md
+@@ -20,7 +20,7 @@ The existing guest startup already normalizes saved wallpaper XML spacing and
+ exposes SystemUI's AOD service. Those fixes are retained. Pixel Launcher is not
+ transplanted onto Trebuchet; its Pixel-only broadcast sender check is retained,
+ so this port does not add the Pixel home-screen double-tap gesture to Trebuchet.
+-The existing Lineage posture policy is retained for half-fold app layouts.
++The contributor SystemUI opts into native hinge posture for half-fold app layouts; Stable retains its previous policy. Explicit ONEOS_GUEST_POSTURE still overrides the default.
+ 
+ The guest manager update adds the tested side-chat's LineageOS/OxygenOS/OriginOS
+ artwork mappings, headers and wide assets. System UIDs (including shell 2000)
+diff --git a/scripts/test-fold8-pixel.py b/scripts/test-fold8-pixel.py
+index dc69d8b..a979dd4 100644
+--- a/scripts/test-fold8-pixel.py
++++ b/scripts/test-fold8-pixel.py
+@@ -8,14 +8,15 @@ class PrepareBoundaryTest(unittest.TestCase):
+   with tempfile.TemporaryDirectory() as tmp:
+    root=pathlib.Path(tmp);stage=root/'stage';stage.mkdir()
+    (stage/'.oneos_stage').write_text(json.dumps(dict(image=image,set=fileset,created=0),indent=2)+'\n')
+-   target=stage/'rootfs/system/system_ext/priv-app/SystemUIGoogle/SystemUIGoogle.apk'
++   apk='SystemUI/SystemUI.apk' if image=='lineage24-infiniti' else 'SystemUIGoogle/SystemUIGoogle.apk'
++   target=stage/'rootfs/system/system_ext/priv-app'/apk
+    target.parent.mkdir(parents=True);target.write_bytes(b'donor' if donor else b'wrong')
+    (stage/'data').mkdir();outside=root/'outside';outside.mkdir()
+    (stage/'Fold8AngleRelay.dex').write_bytes(b'dex');(stage/'fold8_pixel.sh').write_text('#')
+    if symlink:(stage/'data/oneos_pixel_hinge').symlink_to(outside,target_is_directory=True)
+    bb=root/'busybox';bb.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\nexit 0\n');bb.chmod(0o755)
+    # Use a tiny fake donor while retaining all script branches and filesystem checks.
+-   script=root/'prepare.sh';script.write_text(SCRIPT.read_text().replace('9934d2dac326f56290f459b9e649185cd5531e1b6ae1f5a72b11e88f865f8b03',hashlib.sha256(b'donor').hexdigest()))
++   script=root/'prepare.sh';script.write_text(SCRIPT.read_text().replace('9934d2dac326f56290f459b9e649185cd5531e1b6ae1f5a72b11e88f865f8b03',hashlib.sha256(b'donor').hexdigest()).replace('aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3',hashlib.sha256(b'donor').hexdigest()))
+    tools=root/'tools';tools.mkdir()
+    for t in ('chown','chcon'):(tools/t).write_text('#!/bin/sh\nexit 0\n');(tools/t).chmod(0o755)
+    calls=root/'calls';env=dict(os.environ,STAGE=str(stage),BB=str(bb),ONEOS_PROFILE=profile,CALLS=str(calls),PATH=str(tools)+':'+os.environ['PATH'])
+@@ -27,6 +28,11 @@ class PrepareBoundaryTest(unittest.TestCase):
+  def test_fold8_and_fold8_ultra_bind_the_patched_systemui(self):
+   for p,s in [('f8','pixel-f8'),('f8u','pixel-f8u')]:
+    result,calls,_=self.run_prepare(p,'pixel11fold-yogi',s);self.assertEqual(0,result.returncode,result.stderr);self.assertIn('mount --bind',calls)
++ def test_lineage_is_scoped_to_fold8_and_exact_donor(self):
++  result,calls,_=self.run_prepare('f8','lineage24-infiniti','lineage');self.assertEqual(0,result.returncode,result.stderr);self.assertIn('Fold8LineageSystemUI.apk',calls)
++  result,calls,_=self.run_prepare('f8u','lineage24-infiniti','lineage');self.assertEqual(0,result.returncode);self.assertNotIn('mount --bind',calls)
++  result,calls,_=self.run_prepare('f8','lineage24-infiniti','lineage',donor=False);self.assertEqual(3,result.returncode);self.assertNotIn('mount --bind',calls)
++  result,_,outside=self.run_prepare('f8','lineage24-infiniti','lineage',symlink=True);self.assertEqual(3,result.returncode);self.assertEqual([],outside)
+  def test_unknown_donor_refuses_before_bind(self):
+   result,calls,_=self.run_prepare(donor=False);self.assertEqual(3,result.returncode);self.assertNotIn('mount --bind',calls)
+  def test_guest_symlink_cannot_redirect_payload_writes(self):
+diff --git a/switcher/assets/oneos_switch.sh b/switcher/assets/oneos_switch.sh
+index c72c7b7..d16831f 100755
+--- a/switcher/assets/oneos_switch.sh
++++ b/switcher/assets/oneos_switch.sh
+@@ -2040,6 +2040,13 @@ esac
+ for h in $HINGE_SET; do
+     grep -q "^  \"set\": \"$h\",\$" "$STAGE/.oneos_stage" && POSTURE_DEFAULT=live
+ done
++# The contributor Lineage SystemUI uses Pixel's native half-fold posture.
++# The baseline donor leaves Stable's posture policy alone.
++if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "lineage24-infiniti",$' "$STAGE/.oneos_stage" &&
++   [ -f "$STAGE/Fold8LineageSystemUI.apk" ] &&
++   [ "$(sha256sum "$STAGE/Fold8LineageSystemUI.apk" | cut -d' ' -f1)" != aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3 ]; then
++    POSTURE_DEFAULT=live
++fi
+ GUEST_POSTURE_LIVE=0; [ "${ONEOS_GUEST_POSTURE:-$POSTURE_DEFAULT}" = live ] && GUEST_POSTURE_LIVE=1
+ GUEST_FOLD_FORM=0; [ "${ONEOS_GUEST_FORM:-fold}" = fold ] && GUEST_FOLD_FORM=1
+ # An OxygenOS image (its stable display size resource, see "stable display size"
 -- 
 2.56.0
 
