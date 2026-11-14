@@ -1,7 +1,7 @@
 From ed380b16059906e8893264a09df10ddf5a21834a Mon Sep 17 00:00:00 2001
 From: SadLinusGuy0 <joshskinner008@gmail.com>
 Date: Sat, 14 Nov 2026 12:53:40 +0000
-Subject: [PATCH 1/2] Discover compatible contributor patches and port Fold8
+Subject: [PATCH 1/3] Discover compatible contributor patches and port Fold8
  Pixel fixes to Lineage
 
 ---
@@ -6915,7 +6915,7 @@ index 0000000..1d719f6
 From 2be88168c44d1a3b7c76ccc156ad3f2eba532d6c Mon Sep 17 00:00:00 2001
 From: SadLinusGuy0 <joshskinner008@gmail.com>
 Date: Sat, 14 Nov 2026 12:57:12 +0000
-Subject: [PATCH 2/2] Refresh discovery on resume and retain live Lineage fold
+Subject: [PATCH 2/3] Refresh discovery on resume and retain live Lineage fold
  posture
 
 ---
@@ -7002,6 +7002,242 @@ index c72c7b7..d16831f 100755
  GUEST_POSTURE_LIVE=0; [ "${ONEOS_GUEST_POSTURE:-$POSTURE_DEFAULT}" = live ] && GUEST_POSTURE_LIVE=1
  GUEST_FOLD_FORM=0; [ "${ONEOS_GUEST_FORM:-fold}" = fold ] && GUEST_FOLD_FORM=1
  # An OxygenOS image (its stable display size resource, see "stable display size"
+-- 
+2.56.0
+
+
+From e3f0aed1ea6697c33f5fb6fee4fadc7a2f8e5537 Mon Sep 17 00:00:00 2001
+From: SadLinusGuy0 <joshskinner008@gmail.com>
+Date: Sat, 14 Nov 2026 13:10:58 +0000
+Subject: [PATCH 3/3] Use equal Settings panes in Fold8 Lineage experimental
+ patches
+
+---
+ app-android/app/build.gradle.kts                            | 4 ++--
+ app-android/app/src/full/assets/root/oneos_root.sh          | 2 +-
+ .../kotlin/com/fahadali/oneos/core/model/PackageSets.kt     | 1 +
+ .../kotlin/com/fahadali/oneos/core/model/PatchManifest.kt   | 2 +-
+ .../kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt | 2 +-
+ .../core/model/src/test/resources/packages/lineage.sha256   | 1 +
+ app-android/packages/lineage.sha256                         | 1 +
+ app-android/packages/remote.txt                             | 1 +
+ app-android/packages/sizes.txt                              | 1 +
+ docs/fold8-lineage.md                                       | 4 ++++
+ docs/fold8-patch-channels.md                                | 2 +-
+ scripts/make-fold8-lineage.py                               | 6 ++++--
+ scripts/release-patch-channel.py                            | 2 +-
+ switcher/assets/guest_prepare.sh                            | 6 ++++++
+ .../lineage_settings_experimental/AndroidManifest.xml       | 1 +
+ .../lineage_settings_experimental/res/values/config.xml     | 1 +
+ .../overlays/lineage_settings_stable/AndroidManifest.xml    | 1 +
+ .../overlays/lineage_settings_stable/res/values/config.xml  | 1 +
+ 18 files changed, 30 insertions(+), 9 deletions(-)
+ create mode 100644 switcher/overlays/lineage_settings_experimental/AndroidManifest.xml
+ create mode 100644 switcher/overlays/lineage_settings_experimental/res/values/config.xml
+ create mode 100644 switcher/overlays/lineage_settings_stable/AndroidManifest.xml
+ create mode 100644 switcher/overlays/lineage_settings_stable/res/values/config.xml
+
+diff --git a/app-android/app/build.gradle.kts b/app-android/app/build.gradle.kts
+index a96f04c..a24d415 100644
+--- a/app-android/app/build.gradle.kts
++++ b/app-android/app/build.gradle.kts
+@@ -519,8 +519,8 @@ android {
+         // 0.5.00 (129, published 11-13): every system on the S23 family (SM8550, HIDL audio HAL) plays A2DP through
+         // the vendor's Bluetooth module with offload off, as One UI does; 0.4.99's bridge got the session but the
+         // offload path failed with -38 (ColorOS 7eeafc87, 5528e31a; Pixel e353ca45). Not tried yet.
+-        versionCode = 139
+-        versionName = "0.5.09-lineage-f8"
++        versionCode = 140
++        versionName = "0.5.09-lineage-f8.2"
+         // 0.4.56 (73), TEST CHANNEL ONLY: the Find N6 set's Theme Store logs every OkHttp request and reply (n6g_r7,
+         // patches/theme_store_netlog.py) for the owner's "No Data" log; the next public build goes back to n6g_r6.
+         // Send to the OneOS team (0.4.29, both editions): the report service's
+diff --git a/app-android/app/src/full/assets/root/oneos_root.sh b/app-android/app/src/full/assets/root/oneos_root.sh
+index 0c2a625..fd9c30a 100644
+--- a/app-android/app/src/full/assets/root/oneos_root.sh
++++ b/app-android/app/src/full/assets/root/oneos_root.sh
+@@ -154,7 +154,7 @@ SET_PIXEL="services_patched.jar framework_patched.jar telephony-common_patched.j
+ SET_INFINITYX="services_patched.jar oplus-services_patched.jar framework_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so telephony-common_patched.jar samcam.tar guards.txt ims-ext-common_patched.jar oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSGuest.apk OneOSPixelStatusBar.apk art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img gmssystem_payload.img"
+ # LineageOS 24 (0.5.06): the guards, the camera codes, the guest vold, the AOSP signal poll, the IMS backoff, the in-guest app, the
+ # fold and tablet overlays and its own payloads; no Google payload (One UI's Google apps, guest_google.sh).
+-SET_LINEAGE="Fold8LineageSystemUI.apk Fold8LineageUnfold.apk Fold8AngleRelay.dex services_patched.jar framework_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so telephony-common_patched.jar guards.txt ims-ext-common_patched.jar oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSGuest.apk OneOSPixelStatusBar.apk OneOSFoldCutout.apk OneOSTabletQs.apk oneos-apex-requires.txt art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img OneOSPixelDoze.apk libbootanimation_preapex_patched.so"
++SET_LINEAGE="OneOSSettingsSplit.apk Fold8LineageSystemUI.apk Fold8LineageUnfold.apk Fold8AngleRelay.dex services_patched.jar framework_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so telephony-common_patched.jar guards.txt ims-ext-common_patched.jar oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSGuest.apk OneOSPixelStatusBar.apk OneOSFoldCutout.apk OneOSTabletQs.apk oneos-apex-requires.txt art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img OneOSPixelDoze.apk libbootanimation_preapex_patched.so"
+ # The HyperOS set (docs/hyperos.md; every phone from 0.4.31): services.jar and Xiaomi's two guarded jars, the signal poll, the
+ # QTI IMS backoff, the in-guest OneOS app and the image's payloads. No gvld pins yet.
+ SET_HYPEROS="services_patched.jar miui-services_patched.jar apprecovery.proinstaller_patched.jar framework_patched.jar miui-wifi-service_patched.jar miui-telephony-common_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so guards.txt oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk ims-ext-common_patched.jar OneOSGuest.apk socket_exec libaudiohal_aidl_patched.so MiWallpaper_patched.apk art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img libsurfaceflinger_patched.so telephony-common_patched.jar samcam.tar samcam_bar.tar xiaomi-opt-telephony_patched.jar"
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+index 2c1926b..f09ec02 100644
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+@@ -752,6 +752,7 @@ object PackageSets {
+         imageId = Images.ID_LINEAGE,
+         sourceDir = "out/overlays_lineage_r4",
+         files = listOf(
++            PackageFile("OneOSSettingsSplit.apk", FileRole.RRO),
+             PackageFile("Fold8LineageSystemUI.apk", FileRole.GUEST_FIX),
+             PackageFile("Fold8LineageUnfold.apk", FileRole.GUEST_FIX),
+             PackageFile("Fold8AngleRelay.dex", FileRole.GUEST_FIX),
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PatchManifest.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PatchManifest.kt
+index 38139be..7f20a23 100644
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PatchManifest.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PatchManifest.kt
+@@ -46,6 +46,6 @@ data class PatchManifest(
+          * Contributor-replaceable guest SystemUI APKs, resource-only overlays and the validated ColorOS addon archive.
+          * System-image, device and base-file checks still apply. Nothing that guards One UI.
+          */
+-        val REPLACEABLE = setOf("Fold8SystemUI.apk", "GlobalVerifiedAddons.tar", "Fold8LineageSystemUI.apk", "Fold8LineageUnfold.apk", "OneOSPixelStatusBar.apk")
++        val REPLACEABLE = setOf("Fold8SystemUI.apk", "GlobalVerifiedAddons.tar", "Fold8LineageSystemUI.apk", "Fold8LineageUnfold.apk", "OneOSPixelStatusBar.apk", "OneOSSettingsSplit.apk")
+     }
+ }
+diff --git a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+index 22e2563..a4a6c4c 100644
+--- a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
++++ b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+@@ -77,7 +77,7 @@ class PackageSetsTest {
+         assertEquals("lineage", lineage.id)
+         assertEquals(Images.ID_LINEAGE, lineage.imageId)
+         assertEquals("out/overlays_lineage_r4", lineage.sourceDir)
+-        assertEquals(41, lineage.files.size) // 0.5.07 r3: + libbootanimation_preapex_patched.so; 0.5.06 r2: + OneOSPixelDoze.apk (AOD)
++        assertEquals(42, lineage.files.size) // 0.5.07 r3: + libbootanimation_preapex_patched.so; 0.5.06 r2: + OneOSPixelDoze.apk (AOD)
+         assertEquals(20, lineage.files.count { it.role == FileRole.APEX_PAYLOAD })
+         assertEquals(listOf(PackageSets.TETHERING, PackageSets.CELLBROADCAST), lineage.omitted)
+         assertTrue(lineage.file(PackageSets.GMS_PAYLOAD) == null && lineage.file("oplus-services_patched.jar") == null && lineage.file("samcam.tar") == null)
+diff --git a/app-android/core/model/src/test/resources/packages/lineage.sha256 b/app-android/core/model/src/test/resources/packages/lineage.sha256
+index e306fa1..eecdb8d 100644
+--- a/app-android/core/model/src/test/resources/packages/lineage.sha256
++++ b/app-android/core/model/src/test/resources/packages/lineage.sha256
+@@ -41,3 +41,4 @@ edcf391437b107dc9a86a5c1435c7aba9a572373344aa62d9c972c7ab2d36dc2  vold_patched
+ 35ecf1fa7d4bbeefd65cf927bc7bcd0065b105158c12e1d7f87f305ba85501fe  Fold8LineageUnfold.apk
+ ccf2fbddc462eca6d7cb7f112ca1b36620fe0ccd044ff6ba28bebe13cfe6b89e  Fold8AngleRelay.dex
+ aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3  Fold8LineageSystemUI.apk
++9b8ee701bfc599d8ae416ca7ca3f42819ae1bfffca0a8b93bd1ac07bb0130e99  OneOSSettingsSplit.apk
+diff --git a/app-android/packages/lineage.sha256 b/app-android/packages/lineage.sha256
+index e306fa1..eecdb8d 100644
+--- a/app-android/packages/lineage.sha256
++++ b/app-android/packages/lineage.sha256
+@@ -41,3 +41,4 @@ edcf391437b107dc9a86a5c1435c7aba9a572373344aa62d9c972c7ab2d36dc2  vold_patched
+ 35ecf1fa7d4bbeefd65cf927bc7bcd0065b105158c12e1d7f87f305ba85501fe  Fold8LineageUnfold.apk
+ ccf2fbddc462eca6d7cb7f112ca1b36620fe0ccd044ff6ba28bebe13cfe6b89e  Fold8AngleRelay.dex
+ aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3  Fold8LineageSystemUI.apk
++9b8ee701bfc599d8ae416ca7ca3f42819ae1bfffca0a8b93bd1ac07bb0130e99  OneOSSettingsSplit.apk
+diff --git a/app-android/packages/remote.txt b/app-android/packages/remote.txt
+index 4b56576..c3db845 100644
+--- a/app-android/packages/remote.txt
++++ b/app-android/packages/remote.txt
+@@ -383,3 +383,4 @@ ff76a847b4bce02e9e0b8f1bbe6efb3e37ede930717adf9cd2730ea5fb7186e4 gh:sets-1,sf,1Z
+ ffbafbf7336e69aa9e06e4918afd3956055e8b796f1b7a3b428e78ca06a3905a gh:sets-1,sf,1jGKrnxDPI1r3XLZmAHNwkPl4ZQ9gx0E4,1ZYdWOVSLoLb9n_KkN8qbD_9nOP8eagj_,1efVOMikPcW4UPECU-kLKsNcA470bMtIf,14O8Xm6nrrcsMQ0mKV8RaDG1QSZgjQkoS,1ntqU4qhX4L5Vuh3umK1g1DnFLKUE_RjZ,1Z4ymmXr8jeasmY0Bqr7opL81TcE4DozY
+ 35ecf1fa7d4bbeefd65cf927bc7bcd0065b105158c12e1d7f87f305ba85501fe gh:thatjoshguy67/OneOS-files:fold8-experimental
+ aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3 gh:thatjoshguy67/OneOS-files:fold8-experimental
++9b8ee701bfc599d8ae416ca7ca3f42819ae1bfffca0a8b93bd1ac07bb0130e99 gh:thatjoshguy67/OneOS-files:fold8-experimental
+diff --git a/app-android/packages/sizes.txt b/app-android/packages/sizes.txt
+index 0bc9412..7af08dd 100644
+--- a/app-android/packages/sizes.txt
++++ b/app-android/packages/sizes.txt
+@@ -382,3 +382,4 @@ ff76a847b4bce02e9e0b8f1bbe6efb3e37ede930717adf9cd2730ea5fb7186e4 78028800
+ ffbafbf7336e69aa9e06e4918afd3956055e8b796f1b7a3b428e78ca06a3905a 22511616
+ 35ecf1fa7d4bbeefd65cf927bc7bcd0065b105158c12e1d7f87f305ba85501fe 8538
+ aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3 44252100
++9b8ee701bfc599d8ae416ca7ca3f42819ae1bfffca0a8b93bd1ac07bb0130e99 8538
+diff --git a/docs/fold8-lineage.md b/docs/fold8-lineage.md
+index 9d23044..c973661 100644
+--- a/docs/fold8-lineage.md
++++ b/docs/fold8-lineage.md
+@@ -46,3 +46,7 @@ non-DEX entries, DEX instruction checks, model/package/source tests, native
+ security regressions and packaged staging integrity. Physical hinge motion,
+ lock-screen gestures, artwork framing and persistence through a guest restart
+ still require an on-device run of the signed app update.
++
++Settings uses a 50:50 activity-embedding split in Experimental (resource config_activity_embed_split_ratio = 0.5); Stable retains 0.3636. Only the Fold8 Lineage guest receives this resource-only overlay.
++
++Live validation: Settings resource lookup returned 0.5 after applying the fabricated guest-only float override and restarting Settings. The owner confirmed the visible 50:50 split. Persistence through a new preparation/guest boot remains unverified.
+diff --git a/docs/fold8-patch-channels.md b/docs/fold8-patch-channels.md
+index c804f71..7d0e005 100644
+--- a/docs/fold8-patch-channels.md
++++ b/docs/fold8-patch-channels.md
+@@ -18,7 +18,7 @@ Guard jars, guards.txt, native binaries and system-UID DEX remain APK-pinned.
+ 
+ Lineage on the Galaxy Z Fold8 uses `f8-lineage.json`. Experimental replaces
+ `Fold8LineageSystemUI.apk`, `Fold8LineageUnfold.apk` and
+-`OneOSPixelStatusBar.apk`; unchanged payloads use their existing upstream pins.
++`OneOSPixelStatusBar.apk` and `OneOSSettingsSplit.apk`; unchanged payloads use their existing upstream pins.
+ The stable baseline includes the original Lineage SystemUI and a resource-only
+ AOD overlay. Only profile f8 activates the new Lineage SystemUI/unfold payloads.
+ 
+diff --git a/scripts/make-fold8-lineage.py b/scripts/make-fold8-lineage.py
+index e2b87ba..7ecbfb1 100644
+--- a/scripts/make-fold8-lineage.py
++++ b/scripts/make-fold8-lineage.py
+@@ -43,8 +43,10 @@ def main():
+         '--zipalign',bt/'zipalign','--output',overrides/'Fold8LineageSystemUI.apk')
+     for variant,output in [('stable',baseline/'Fold8LineageUnfold.apk'),
+                            ('experimental',overrides/'Fold8LineageUnfold.apk'),
+-                           ('statusbar',overrides/'OneOSPixelStatusBar.apk')]:
+-        source = ROOT/'switcher/overlays'/('lineage_fold8_'+variant)
++                           ('statusbar',overrides/'OneOSPixelStatusBar.apk'),
++                           ('settings_stable',baseline/'OneOSSettingsSplit.apk'),
++                           ('settings_experimental',overrides/'OneOSSettingsSplit.apk')]:
++        source = ROOT/'switcher/overlays'/(('lineage_'+variant) if variant.startswith('settings_') else ('lineage_fold8_'+variant))
+         with tempfile.TemporaryDirectory(prefix='oneos-lineage-rro-') as temporary:
+             w = Path(temporary)
+             run(bt/'aapt2','compile','--dir',source/'res','-o',w/'res.zip')
+diff --git a/scripts/release-patch-channel.py b/scripts/release-patch-channel.py
+index 2db0394..4cb3a4f 100644
+--- a/scripts/release-patch-channel.py
++++ b/scripts/release-patch-channel.py
+@@ -18,7 +18,7 @@ import urllib.request
+ ROOT = Path(__file__).resolve().parents[1]
+ # The only files a channel may replace (PatchManifest.REPLACEABLE in the app, which refuses every other
+ # difference): never guards.txt, a guarded jar or binary, a payload image or a script.
+-REPLACEABLE = {'Fold8SystemUI.apk', 'GlobalVerifiedAddons.tar', 'Fold8LineageSystemUI.apk', 'Fold8LineageUnfold.apk', 'OneOSPixelStatusBar.apk'}
++REPLACEABLE = {'Fold8SystemUI.apk', 'GlobalVerifiedAddons.tar', 'Fold8LineageSystemUI.apk', 'Fold8LineageUnfold.apk', 'OneOSPixelStatusBar.apk', 'OneOSSettingsSplit.apk'}
+ def source_config(source_id):
+     catalog = json.loads((ROOT / 'app-android/packages/patch-sources.json').read_text())
+     if catalog['schema'] != 1:
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+index 1e9933e..f578b3d 100755
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -3046,6 +3046,12 @@ if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "set": "pixel-f8",$' "$STAGE/.on
+ elif [ "${ONEOS_PROFILE:-}" = f8u ] && grep -q '^  "set": "pixel-f8u",$' "$STAGE/.oneos_stage"; then
+     UNFOLD_RRO=OneOSPixelUnfold.apk
+ fi
++if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "lineage24-infiniti",$' "$STAGE/.oneos_stage" && [ -f "$STAGE/OneOSSettingsSplit.apk" ]; then
++    mkdir -p "$STAGE/oem/overlay" &&
++        cp "$STAGE/OneOSSettingsSplit.apk" "$STAGE/oem/overlay/" &&
++        chmod 644 "$STAGE/oem/overlay/OneOSSettingsSplit.apk" &&
++        OEM_FILES="$OEM_FILES overlay/OneOSSettingsSplit.apk"
++fi
+ if [ -n "$UNFOLD_RRO" ] && [ -f "$STAGE/$UNFOLD_RRO" ]; then
+     mkdir -p "$STAGE/oem/overlay" &&
+         cp "$STAGE/$UNFOLD_RRO" "$STAGE/oem/overlay/" &&
+diff --git a/switcher/overlays/lineage_settings_experimental/AndroidManifest.xml b/switcher/overlays/lineage_settings_experimental/AndroidManifest.xml
+new file mode 100644
+index 0000000..244956e
+--- /dev/null
++++ b/switcher/overlays/lineage_settings_experimental/AndroidManifest.xml
+@@ -0,0 +1 @@
++<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="oneos.overlay.lineage.settings"><application android:hasCode="false"/><overlay android:targetPackage="com.android.settings" android:isStatic="true" android:priority="999"/></manifest>
+diff --git a/switcher/overlays/lineage_settings_experimental/res/values/config.xml b/switcher/overlays/lineage_settings_experimental/res/values/config.xml
+new file mode 100644
+index 0000000..8d2a93a
+--- /dev/null
++++ b/switcher/overlays/lineage_settings_experimental/res/values/config.xml
+@@ -0,0 +1 @@
++<resources><dimen name="config_activity_embed_split_ratio">0.5</dimen></resources>
+diff --git a/switcher/overlays/lineage_settings_stable/AndroidManifest.xml b/switcher/overlays/lineage_settings_stable/AndroidManifest.xml
+new file mode 100644
+index 0000000..244956e
+--- /dev/null
++++ b/switcher/overlays/lineage_settings_stable/AndroidManifest.xml
+@@ -0,0 +1 @@
++<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="oneos.overlay.lineage.settings"><application android:hasCode="false"/><overlay android:targetPackage="com.android.settings" android:isStatic="true" android:priority="999"/></manifest>
+diff --git a/switcher/overlays/lineage_settings_stable/res/values/config.xml b/switcher/overlays/lineage_settings_stable/res/values/config.xml
+new file mode 100644
+index 0000000..013d4e1
+--- /dev/null
++++ b/switcher/overlays/lineage_settings_stable/res/values/config.xml
+@@ -0,0 +1 @@
++<resources><dimen name="config_activity_embed_split_ratio">0.3636</dimen></resources>
 -- 
 2.56.0
 

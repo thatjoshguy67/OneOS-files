@@ -3,7 +3,7 @@
   "profile": "f8",
   "set": "lineage",
   "imageSha256": "f1ce7c1add2dae73c681b29ccb86068864d5f42886bc1c22d249891f3bdf6261",
-  "revision": "lineage-f8-1",
+  "revision": "lineage-f8-2",
   "files": [
     {
       "name": "OneOSFoldCutout.apk",
@@ -249,6 +249,12 @@
       "name": "Fold8LineageSystemUI.apk",
       "sha256": "d875aa6517625cd9c3800c27cce054f4a8b3bb3870b889052455f8606880b87c",
       "bytes": 44306324,
+      "source": "gh:thatjoshguy67/OneOS-files:fold8-experimental"
+    },
+    {
+      "name": "OneOSSettingsSplit.apk",
+      "sha256": "65c0f22a9fc599f63a2f0163940bd572a8e93e575f19eeb4162658765571974b",
+      "bytes": 8538,
       "source": "gh:thatjoshguy67/OneOS-files:fold8-experimental"
     }
   ]
