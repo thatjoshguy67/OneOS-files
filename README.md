@@ -19,3 +19,10 @@ One app update is needed to add discovery and the Lineage payload roles; future
 compatible manifests appear without another update. Choose this source and use
 Update/Repair before booting. Payloads have static validation; a physical guest
 boot and hinge/gesture checks are still pending.
+
+## Fold8 Infinity-X patches
+
+`f8-infinityx.json` is published alongside Lineage on the experimental release.
+[Infinity-X source and validation limits](patches/infinityx-f8/README.md).
+The port requires the updated app with Infinity-X UI roles and boot hooks;
+compatible later patch revisions are discovered automatically.

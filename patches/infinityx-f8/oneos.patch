@@ -1,0 +1,674 @@
+From 507fc877f3eaffa7b6ccab40b56816362866f816 Mon Sep 17 00:00:00 2001
+From: SadLinusGuy0 <joshskinner008@gmail.com>
+Date: Sat, 14 Nov 2026 13:41:43 +0000
+Subject: [PATCH] Port Fold8 Pixel UI fixes and equal Settings panes to
+ Infinity-X
+
+---
+ app-android/app/build.gradle.kts              |  4 +-
+ .../app/src/full/assets/root/oneos_root.sh    |  2 +-
+ .../fahadali/oneos/core/model/PackageSets.kt  |  6 +-
+ .../oneos/core/model/PatchManifest.kt         |  2 +-
+ .../oneos/core/model/PackageSetsTest.kt       |  2 +-
+ .../oneos/core/model/PatchSourceTest.kt       |  1 +
+ .../resources/packages/infinityx.guards.txt   |  7 +-
+ .../test/resources/packages/infinityx.sha256  | 16 ++--
+ app-android/packages/infinityx.sha256         |  4 +
+ app-android/packages/remote.txt               |  2 +
+ app-android/packages/sizes.txt                |  2 +
+ docs/fold8-infinityx.md                       | 46 ++++++++++
+ docs/fold8-patch-channels.md                  |  6 ++
+ scripts/make-fold8-infinityx.py               | 64 +++++++++++++
+ scripts/release-patch-channel.py              |  2 +-
+ scripts/test-fold8-pixel.py                   | 10 ++-
+ scripts/test-patch-channel.py                 |  4 +
+ switcher/assets/fold8_pixel.sh                |  6 ++
+ switcher/assets/guest_prepare.sh              |  5 +-
+ switcher/assets/oneos_switch.sh               |  8 +-
+ .../AndroidManifest.xml                       |  1 +
+ .../res/values/config.xml                     |  9 ++
+ .../AndroidManifest.xml                       |  1 +
+ .../res/values/config.xml                     |  3 +
+ .../AndroidManifest.xml                       | 12 +++
+ .../res/values/dimens.xml                     | 13 +++
+ .../patches/fold8-infinityx/build-systemui.py | 90 +++++++++++++++++++
+ 27 files changed, 309 insertions(+), 19 deletions(-)
+ create mode 100644 docs/fold8-infinityx.md
+ create mode 100644 scripts/make-fold8-infinityx.py
+ create mode 100644 switcher/overlays/infinityx_fold8_experimental/AndroidManifest.xml
+ create mode 100644 switcher/overlays/infinityx_fold8_experimental/res/values/config.xml
+ create mode 100644 switcher/overlays/infinityx_fold8_stable/AndroidManifest.xml
+ create mode 100644 switcher/overlays/infinityx_fold8_stable/res/values/config.xml
+ create mode 100644 switcher/overlays/infinityx_fold8_statusbar/AndroidManifest.xml
+ create mode 100644 switcher/overlays/infinityx_fold8_statusbar/res/values/dimens.xml
+ create mode 100644 switcher/patches/fold8-infinityx/build-systemui.py
+
+diff --git a/app-android/app/build.gradle.kts b/app-android/app/build.gradle.kts
+index a24d415..f44ec57 100644
+--- a/app-android/app/build.gradle.kts
++++ b/app-android/app/build.gradle.kts
+@@ -519,8 +519,8 @@ android {
+         // 0.5.00 (129, published 11-13): every system on the S23 family (SM8550, HIDL audio HAL) plays A2DP through
+         // the vendor's Bluetooth module with offload off, as One UI does; 0.4.99's bridge got the session but the
+         // offload path failed with -38 (ColorOS 7eeafc87, 5528e31a; Pixel e353ca45). Not tried yet.
+-        versionCode = 140
+-        versionName = "0.5.09-lineage-f8.2"
++        versionCode = 141
++        versionName = "0.5.09-fold8-aosp"
+         // 0.4.56 (73), TEST CHANNEL ONLY: the Find N6 set's Theme Store logs every OkHttp request and reply (n6g_r7,
+         // patches/theme_store_netlog.py) for the owner's "No Data" log; the next public build goes back to n6g_r6.
+         // Send to the OneOS team (0.4.29, both editions): the report service's
+diff --git a/app-android/app/src/full/assets/root/oneos_root.sh b/app-android/app/src/full/assets/root/oneos_root.sh
+index fd9c30a..ed220c3 100644
+--- a/app-android/app/src/full/assets/root/oneos_root.sh
++++ b/app-android/app/src/full/assets/root/oneos_root.sh
+@@ -151,7 +151,7 @@ SET_COMMON="services_patched.jar oplus-services_patched.jar vold_patched service
+ SET_PIXEL="services_patched.jar framework_patched.jar telephony-common_patched.jar libcamera_client_patched.so samcam.tar vold_patched service.incremental_patched.so guards.txt oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSPixelStatusBar.apk OneOSPixelDoze.apk OneOSGuest.apk art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img cellbroadcast_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img gmssystem_payload.img"
+ # Infinity-X (0.4.27): both guard jars, the camera codes, the guest vold, the AOSP
+ # signal poll, the IMS backoff, the in-guest app and its own payloads.
+-SET_INFINITYX="services_patched.jar oplus-services_patched.jar framework_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so telephony-common_patched.jar samcam.tar guards.txt ims-ext-common_patched.jar oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSGuest.apk OneOSPixelStatusBar.apk art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img gmssystem_payload.img"
++SET_INFINITYX="Fold8InfinitySystemUI.apk Fold8InfinityUnfold.apk OneOSSettingsSplit.apk Fold8AngleRelay.dex services_patched.jar oplus-services_patched.jar framework_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so telephony-common_patched.jar samcam.tar guards.txt ims-ext-common_patched.jar oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSGuest.apk OneOSPixelStatusBar.apk art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img gmssystem_payload.img"
+ # LineageOS 24 (0.5.06): the guards, the camera codes, the guest vold, the AOSP signal poll, the IMS backoff, the in-guest app, the
+ # fold and tablet overlays and its own payloads; no Google payload (One UI's Google apps, guest_google.sh).
+ SET_LINEAGE="OneOSSettingsSplit.apk Fold8LineageSystemUI.apk Fold8LineageUnfold.apk Fold8AngleRelay.dex services_patched.jar framework_patched.jar vold_patched service.incremental_patched.so libcamera_client_patched.so telephony-common_patched.jar guards.txt ims-ext-common_patched.jar oneos-telephony.jar oneos-telephony.sha256 OneOSPhoneInjection.apk OneOSGuest.apk OneOSPixelStatusBar.apk OneOSFoldCutout.apk OneOSTabletQs.apk oneos-apex-requires.txt art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img bt_payload.img nfcservices_payload.img telephonycore_payload.img conscrypt_payload.img profiling_payload.img OneOSPixelDoze.apk libbootanimation_preapex_patched.so"
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+index f09ec02..6fec6d9 100644
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+@@ -477,6 +477,10 @@ object PackageSets {
+         imageId = Images.ID_INFINITYX,
+         sourceDir = "out/overlays_infinityx_r16",
+         files = listOf(
++            PackageFile("Fold8InfinitySystemUI.apk", FileRole.GUEST_FIX),
++            PackageFile("Fold8InfinityUnfold.apk", FileRole.GUEST_FIX),
++            PackageFile("OneOSSettingsSplit.apk", FileRole.RRO),
++            PackageFile("Fold8AngleRelay.dex", FileRole.GUEST_FIX),
+             PackageFile("services_patched.jar", FileRole.GUARD_JAR),
+             PackageFile("oplus-services_patched.jar", FileRole.GUARD_JAR),
+             PackageFile("framework_patched.jar", FileRole.GUARD_JAR),
+@@ -499,7 +503,7 @@ object PackageSets {
+         ) + (COMMON_PAYLOADS + listOf("bt", "nfcservices", "telephonycore", "conscrypt", "profiling", "gmssystem"))
+             .map { PackageFile("${it}_payload.img", FileRole.APEX_PAYLOAD) },
+         omitted = listOf(TETHERING, CELLBROADCAST),
+-        approxBytes = 616_237_045L,
++        approxBytes = 671738907L,
+         hasReturnApp = true,
+     )
+ 
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PatchManifest.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PatchManifest.kt
+index 7f20a23..2edddb8 100644
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PatchManifest.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PatchManifest.kt
+@@ -46,6 +46,6 @@ data class PatchManifest(
+          * Contributor-replaceable guest SystemUI APKs, resource-only overlays and the validated ColorOS addon archive.
+          * System-image, device and base-file checks still apply. Nothing that guards One UI.
+          */
+-        val REPLACEABLE = setOf("Fold8SystemUI.apk", "GlobalVerifiedAddons.tar", "Fold8LineageSystemUI.apk", "Fold8LineageUnfold.apk", "OneOSPixelStatusBar.apk", "OneOSSettingsSplit.apk")
++        val REPLACEABLE = setOf("Fold8SystemUI.apk", "GlobalVerifiedAddons.tar", "Fold8LineageSystemUI.apk", "Fold8LineageUnfold.apk", "OneOSPixelStatusBar.apk", "OneOSSettingsSplit.apk", "Fold8InfinitySystemUI.apk", "Fold8InfinityUnfold.apk")
+     }
+ }
+diff --git a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+index a4a6c4c..563d8f8 100644
+--- a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
++++ b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+@@ -58,7 +58,7 @@ class PackageSetsTest {
+         assertEquals(Images.ID_INFINITYX, ifx.imageId)
+         assertEquals("out/overlays_infinityx_r16", ifx.sourceDir)
+         // 0.4.55 (r4): telephony-common_patched.jar (the SMS centre) and samcam.tar (the S26 Ultra's camera).
+-        assertEquals(36, ifx.files.size)
++        assertEquals(40, ifx.files.size)
+         // 0.4.33: the status bar's corner padding, as on the Pixel images.
+         assertTrue(ifx.file("OneOSPixelStatusBar.apk")?.role == FileRole.RRO)
+         assertEquals(21, ifx.files.count { it.role == FileRole.APEX_PAYLOAD })
+diff --git a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PatchSourceTest.kt b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PatchSourceTest.kt
+index 3c0bb83..e3395be 100644
+--- a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PatchSourceTest.kt
++++ b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PatchSourceTest.kt
+@@ -26,6 +26,7 @@ class PatchSourceTest {
+         val dynamic=source.copy(targets=emptyList(),discover=true)
+         assertTrue(dynamic.check().isEmpty())
+         assertTrue(dynamic.supports(Profiles.FOLD8.id,Images.ID_LINEAGE,PackageSets.ID_LINEAGE))
++        assertTrue(dynamic.supports(Profiles.FOLD8.id,Images.ID_INFINITYX,PackageSets.ID_INFINITYX))
+         assertFalse(dynamic.supports("unknown",Images.ID_LINEAGE,PackageSets.ID_LINEAGE))
+         assertFalse(dynamic.supports(Profiles.FOLD8.id,Images.ID_LINEAGE,PackageSets.ID_PIXEL_F8))
+     }
+diff --git a/app-android/core/model/src/test/resources/packages/infinityx.guards.txt b/app-android/core/model/src/test/resources/packages/infinityx.guards.txt
+index 7404599..0b19bda 100644
+--- a/app-android/core/model/src/test/resources/packages/infinityx.guards.txt
++++ b/app-android/core/model/src/test/resources/packages/infinityx.guards.txt
+@@ -10,10 +10,13 @@
+ # 0.4.59: samcam with fix_recorder_progress.py and fix_secmedia_insert.py (recording timer; videos saved without secmedia)
+ # 0.4.59: samcam with the timer started by a 0 report and stopped with the recorder, secmedia queries on MediaStore, gallery fallback for secmedia uris
+ # 0.4.59: samcam with the video rotation written after the stop (fix_video_rotation.py)
+-8acd5e4a1a2f4230f9f5a836dbba4ecd3a4f8053a517a9e9d39be5610e3175d7  services_patched.jar
++# 0.4.63: services_patched.jar + guest_pdb_init_survives.py (the PDB start task survives a failed FRP deactivation: no init timeout)
++# 0.5.00: services_patched.jar + guest_pdb_frp_writes_fail.py (with One UI's FRP active a guest PDB write fails as an I/O error instead of killing system_server's main thread: no black screen at the first start)
++# 0.5.01: framework_patched.jar + guest_secims_ready.py (Samsung IMS hears telephony is ready for a call's callbacks once telephony attaches to the session: calls end in the guest)
++f56cfc0dad331a44dbea6aa9871ae469dde2f6e43f9b2213bc7fc46d530e11af  services_patched.jar
+ efeff31c080f7d92c2713fe7d7df79b95c149c9db47426a702f212e86fb28389  oplus-services_patched.jar
+ 654dcfa788bcfde4fc539935ffbcb707a3b0c2001e31b6de27edec5afe5de404  vold_patched
+ d853cfa2f60c477a5c5224cf9972665f09a733fa66e659d71f43d521589fceb7  service.incremental_patched.so
+-664e9705b3fc1d9370ad1d18ba403cd3df3bc36f76829f6f40fdb80108437aa7  framework_patched.jar
++3fe63b68a43dbf62af8b2afd5244f97622e929c89d5e244f0f7dea89afcf8e66  framework_patched.jar
+ 1ba6a3b21d5321b225e93d93d024332936e339e5002a082f98e6e7a51c9449bd  libcamera_client_patched.so
+ f91a0e15d5d21c7476258b058264b24cf5dc1788b555a43c64629f50bcfd0038  telephony-common_patched.jar
+diff --git a/app-android/core/model/src/test/resources/packages/infinityx.sha256 b/app-android/core/model/src/test/resources/packages/infinityx.sha256
+index bece829..18a16ae 100644
+--- a/app-android/core/model/src/test/resources/packages/infinityx.sha256
++++ b/app-android/core/model/src/test/resources/packages/infinityx.sha256
+@@ -1,5 +1,5 @@
+-# OneOS package set infinityx: sha256sum of out/overlays_infinityx_r11 (scripts/make-overlays.sh, 2026-10-29; services_patched.jar with patches/guest_sec_ims_signature.py; 2026-10-31 OneOSPixelStatusBar.apk; 0.4.39 r3: services_patched.jar with patches/guest_ksu_manager_appid.py, 2026-11-03), minus tethering_payload.img and cellbroadcast_payload.img (One UI's modules stay, 0.4.28; 0.4.55 r4: services_patched.jar with patches/guest_secims_path_upgrade.py, framework_patched.jar with patches/guest_secims_members.py, telephony-common_patched.jar (the image's, patches/guest_smsc_international.py), samcam.tar (the Galaxy S26 Ultra's camera, build-cached.sh SAMCAM_BAR=1), 2026-11-05; 0.4.57 r5: samcam.tar with fix_notification_icon.py; 0.4.58 r6: samcam.tar with the patched scamera_sdk_util.jar again, telephony-common + guest_sms_invalid_response.py, oplus-services + oplus_zen_light.py; 0.4.59 r7: samcam.tar keeps videos on Stop (fix_recorder_track_started.py); 0.4.59 r7: samcam.tar with the gallery fallback (fix_gallery_fallback.py); 0.4.59 r7: samcam.tar with the recording timer and secmedia fallback; 0.4.59 r8: samcam.tar with the camera timer, secmedia queries and gallery fallback; 0.4.59 r9: samcam.tar with the video rotation written after the stop).
+-# app/build.gradle.kts packs exactly these files into the APK and fails the build when out/overlays_infinityx_r11 differs.
++# OneOS package set infinityx: sha256sum of out/overlays_infinityx_r16 (scripts/make-overlays.sh, 2026-10-29; services_patched.jar with patches/guest_sec_ims_signature.py; 2026-10-31 OneOSPixelStatusBar.apk; 0.4.39 r3: services_patched.jar with patches/guest_ksu_manager_appid.py, 2026-11-03; 0.4.63 r13: services_patched.jar with guest_pdb_init_survives.py; 0.4.66 r14: samcam.tar with fix_a_series_resolution.py), minus tethering_payload.img and cellbroadcast_payload.img (One UI's modules stay, 0.4.28; 0.4.55 r4: services_patched.jar with patches/guest_secims_path_upgrade.py, framework_patched.jar with patches/guest_secims_members.py, telephony-common_patched.jar (the image's, patches/guest_smsc_international.py), samcam.tar (the Galaxy S26 Ultra's camera, build-cached.sh SAMCAM_BAR=1), 2026-11-05; 0.4.57 r5: samcam.tar with fix_notification_icon.py; 0.4.58 r6: samcam.tar with the patched scamera_sdk_util.jar again, telephony-common + guest_sms_invalid_response.py, oplus-services + oplus_zen_light.py; 0.4.59 r7: samcam.tar keeps videos on Stop (fix_recorder_track_started.py); 0.4.59 r7: samcam.tar with the gallery fallback (fix_gallery_fallback.py); 0.4.59 r7: samcam.tar with the recording timer and secmedia fallback; 0.4.59 r8: samcam.tar with the camera timer, secmedia queries and gallery fallback; 0.4.59 r9: samcam.tar with the video rotation written after the stop; 0.4.61 r12: samcam.tar with the A phones' settings the S26 Ultra's camera does not know (fix_a_series_modes.py; 0.4.63: fix_a_series_crop.py, the A56's sensor crop)). 0.5.00 r15: r14 with services_patched.jar patched by patches/guest_pdb_frp_writes_fail.py (a PDB write with One UI's FRP active fails as an I/O error, scripts/patch-built-jar.sh), 2026-11-13. 0.5.01 r16: r15 with framework_patched.jar patched by patches/guest_secims_ready.py (Samsung IMS hears telephony is ready for a call's callbacks: calls end, scripts/patch-built-jar.sh), 2026-11-13.
++# app/build.gradle.kts packs exactly these files into the APK and fails the build when out/overlays_infinityx_r16 differs.
+ bd03c424877de86c2864313ba3371d3725b3d5531559373aadc84d592f9cae0c  OneOSGuest.apk
+ f6e6cc651468f33182f9190c89c3432c8063d06040376672110fef62a320df52  OneOSPhoneInjection.apk
+ 466e8b95c9805c6544f736c0a134f6b0de6035232b4473897dc64508bb91114a  OneOSPixelStatusBar.apk
+@@ -11,9 +11,9 @@ b05675f868bca69b086787b2d203c6bba0826be764425f628bea4e5e7499a2e6  configinfrastr
+ 64baea8bafbde151c485708ca8a4d81925f228789b5b5a073bfe7287f6d8eef1  conscrypt_payload.img
+ f79c487ee49ce50e1241fe0875b7c19b10befde2be616a130ef805750fc35234  crashrecovery_payload.img
+ 40c43b34f4c7a6672e7f28645ce6b31ce8c885a6f0427ffc2ae94a76f0bc2fe0  extservices_payload.img
+-664e9705b3fc1d9370ad1d18ba403cd3df3bc36f76829f6f40fdb80108437aa7  framework_patched.jar
++3fe63b68a43dbf62af8b2afd5244f97622e929c89d5e244f0f7dea89afcf8e66  framework_patched.jar
+ b3c723acd61d8135ce33a94d23087edaf56431d4436dcb7fa8df16969c318346  gmssystem_payload.img
+-fda0086efc4d542b6e30d8ed33d90f0c6ff62d46d7a4aaa41d5ed94e9830b03b  guards.txt
++6f6ace3a11cd8a639af72f5f6a4098b6b828673e3ca616585b6850942ce4abca  guards.txt
+ d01cf4913d33d98e86b1e59dbd2fc8ab67cfea618e7a80b0b7f68b436fe759d0  healthfitness_payload.img
+ 916e2167bb6ee583e244b295d526021ca5cd7b81d9a80fca280ffc78d6862e01  i18n_payload.img
+ ed47dbe60d7b01dd8ea12d7d65d034db6986f5b8a4466842f62dbfa29128861f  ims-ext-common_patched.jar
+@@ -28,11 +28,15 @@ c6e64f31062e8b9a2f26093be11c230c98fec0116b7accb25dae3f28b38cea72  permission_pay
+ 26b0f7f08f3aaa0b77e91f2dc39b481d5181fd23ad35baa243e4b95026f1e903  profiling_payload.img
+ 46b0f689db86e74bc574c95279d71e358d6cfd71fba64cc5ad55b85f7a5e7389  rkpd_payload.img
+ cc03c7e425160724ccf3a7c0a5306595b2719c73a8be16a98fb466942c9b0485  runtime_payload.img
+-995a16a87a86db542d0ba498aef5de2b825369e3910cf2e4501fd0fc967f3cc5  samcam.tar
++233cb337e8f8ae692f3fd839c0e74332cb34148418f67b795e62913597a0be2f  samcam.tar
+ 5386ad8afe3c1b0c8c13975340c9e520f48f4785c8387dc6438b794ed5deddbd  sdkext_payload.img
+ d853cfa2f60c477a5c5224cf9972665f09a733fa66e659d71f43d521589fceb7  service.incremental_patched.so
+-8acd5e4a1a2f4230f9f5a836dbba4ecd3a4f8053a517a9e9d39be5610e3175d7  services_patched.jar
++f56cfc0dad331a44dbea6aa9871ae469dde2f6e43f9b2213bc7fc46d530e11af  services_patched.jar
+ f91a0e15d5d21c7476258b058264b24cf5dc1788b555a43c64629f50bcfd0038  telephony-common_patched.jar
+ 3b2beb8afeca77e990fd9fa5d73d825e3d3c37421928b9db86731b60242f8ade  telephonycore_payload.img
+ 654dcfa788bcfde4fc539935ffbcb707a3b0c2001e31b6de27edec5afe5de404  vold_patched
+ 3a3c5b6d0eeb16eaec7620ba0b949c7f41cbbc6e0245b1423a4887e91ffbe88d  wifi_payload.img
++ccf2fbddc462eca6d7cb7f112ca1b36620fe0ccd044ff6ba28bebe13cfe6b89e  Fold8AngleRelay.dex
++6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf  Fold8InfinitySystemUI.apk
++a33cb3407a6f39b27ae2c2d702778c0ac0a72cffadfb7948b9a6c7bdd88f8b11  Fold8InfinityUnfold.apk
++9b8ee701bfc599d8ae416ca7ca3f42819ae1bfffca0a8b93bd1ac07bb0130e99  OneOSSettingsSplit.apk
+diff --git a/app-android/packages/infinityx.sha256 b/app-android/packages/infinityx.sha256
+index e5a485c..18a16ae 100644
+--- a/app-android/packages/infinityx.sha256
++++ b/app-android/packages/infinityx.sha256
+@@ -36,3 +36,7 @@ f91a0e15d5d21c7476258b058264b24cf5dc1788b555a43c64629f50bcfd0038  telephony-comm
+ 3b2beb8afeca77e990fd9fa5d73d825e3d3c37421928b9db86731b60242f8ade  telephonycore_payload.img
+ 654dcfa788bcfde4fc539935ffbcb707a3b0c2001e31b6de27edec5afe5de404  vold_patched
+ 3a3c5b6d0eeb16eaec7620ba0b949c7f41cbbc6e0245b1423a4887e91ffbe88d  wifi_payload.img
++ccf2fbddc462eca6d7cb7f112ca1b36620fe0ccd044ff6ba28bebe13cfe6b89e  Fold8AngleRelay.dex
++6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf  Fold8InfinitySystemUI.apk
++a33cb3407a6f39b27ae2c2d702778c0ac0a72cffadfb7948b9a6c7bdd88f8b11  Fold8InfinityUnfold.apk
++9b8ee701bfc599d8ae416ca7ca3f42819ae1bfffca0a8b93bd1ac07bb0130e99  OneOSSettingsSplit.apk
+diff --git a/app-android/packages/remote.txt b/app-android/packages/remote.txt
+index c3db845..0ecd777 100644
+--- a/app-android/packages/remote.txt
++++ b/app-android/packages/remote.txt
+@@ -384,3 +384,5 @@ ffbafbf7336e69aa9e06e4918afd3956055e8b796f1b7a3b428e78ca06a3905a gh:sets-1,sf,1j
+ 35ecf1fa7d4bbeefd65cf927bc7bcd0065b105158c12e1d7f87f305ba85501fe gh:thatjoshguy67/OneOS-files:fold8-experimental
+ aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3 gh:thatjoshguy67/OneOS-files:fold8-experimental
+ 9b8ee701bfc599d8ae416ca7ca3f42819ae1bfffca0a8b93bd1ac07bb0130e99 gh:thatjoshguy67/OneOS-files:fold8-experimental
++6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf gh:thatjoshguy67/OneOS-files:fold8-experimental
++a33cb3407a6f39b27ae2c2d702778c0ac0a72cffadfb7948b9a6c7bdd88f8b11 gh:thatjoshguy67/OneOS-files:fold8-experimental
+diff --git a/app-android/packages/sizes.txt b/app-android/packages/sizes.txt
+index 7af08dd..a603f01 100644
+--- a/app-android/packages/sizes.txt
++++ b/app-android/packages/sizes.txt
+@@ -383,3 +383,5 @@ ffbafbf7336e69aa9e06e4918afd3956055e8b796f1b7a3b428e78ca06a3905a 22511616
+ 35ecf1fa7d4bbeefd65cf927bc7bcd0065b105158c12e1d7f87f305ba85501fe 8538
+ aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3 44252100
+ 9b8ee701bfc599d8ae416ca7ca3f42819ae1bfffca0a8b93bd1ac07bb0130e99 8538
++6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf 55479234
++a33cb3407a6f39b27ae2c2d702778c0ac0a72cffadfb7948b9a6c7bdd88f8b11 8538
+diff --git a/docs/fold8-infinityx.md b/docs/fold8-infinityx.md
+new file mode 100644
+index 0000000..ebc7a5d
+--- /dev/null
++++ b/docs/fold8-infinityx.md
+@@ -0,0 +1,46 @@
++# Pixel fixes on Infinity-X 4.1 / Galaxy Z Fold8
++
++This port uses the exact OneOS Infinity-X image, not a Lineage donor:
++
++- Compressed image: `608bb8602dcc0c85fc80127a2f9713a695508438b8c2d31eef3df25d23109bb5`
++- Raw image: `899ce57a069959b6463263074f35e5aadadeb7bb46f0c0a756d2ba64168545e2`
++- SystemUI donor: `6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf`
++- Settings donor: `bfe921965d18fd1c16ac335073dee4ccbf2be83adcd24e840fdd477f80d9d87b`
++
++Experimental supplies continuous Samsung hinge input with native public-sensor
++fallback, native unfold progress, live half-fold posture, 48dp framework status
++bar heights, zero SystemUI top padding, symmetric side spacing, Quick Settings
++header refresh on panel changes, lock-screen double tap to sleep/AOD double tap
++to wake, and a 50:50 Settings activity-embedding ratio. Infinity-X's Settings
++uses the same named float resource as Lineage, with original value 0.3636.
++
++Only the Fold8 (`f8`) activates these new UI payloads. Stable receives the
++original Infinity-X SystemUI, the original Settings ratio and the existing AOD
++availability value. The experimental framework overlay exposes SystemUI's
++existing DozeService. The native text/icon sizes, Infinity-X classes/resources,
++launcher and guarded framework payloads are retained. The existing wallpaper
++metadata normalization and shared guest artwork/root-manager fixes also apply.
++The Pixel-only home-screen gesture broadcast is not enabled for Infinity-X's
++launcher.
++
++The SystemUI patch modifies Infinity-X's own methods. Its header callback uses
++five local registers, so a sixth register preserves the listener before the
++existing code runs; Lineage's different register layout is not transplanted.
++Only classes2.dex changes, and the pinned hinge adapter is appended as a new
++classes4.dex. Original classes, non-DEX entries and signing metadata are
++preserved. These modified system APKs are for guest-directory binds, not
++installation with Package Installer.
++
++Build with `scripts/make-fold8-infinityx.py --systemui <donor> --relay <relay>
++--sdk <Android SDK> --out <new output directory>`. The baseline and overrides
++are separate outputs. Package metadata pins the baseline; the channel publisher
++pins the experimental replacement payloads. The source manifest is
++`f8-infinityx.json` on the contributor release. Discovery finds it without an
++embedded Infinity-X source target. The new UI roles and boot hooks require the
++updated app; subsequent compatible channel revisions do not.
++
++Validation is static/build-time: exact image/donor hashes, retained classes and
++non-DEX contents, DEX checks, resource values, preparation failure boundaries,
++package/source model tests and full debug APK staging integrity. The phone was
++disconnected during this port. Physical hinge/gesture behavior, visual layout,
++AOD and persistence across guest re-entry are not yet verified on Infinity-X.
+diff --git a/docs/fold8-patch-channels.md b/docs/fold8-patch-channels.md
+index 7d0e005..2d9b37b 100644
+--- a/docs/fold8-patch-channels.md
++++ b/docs/fold8-patch-channels.md
+@@ -23,3 +23,9 @@ The stable baseline includes the original Lineage SystemUI and a resource-only
+ AOD overlay. Only profile f8 activates the new Lineage SystemUI/unfold payloads.
+ 
+ See [Lineage port](fold8-lineage.md) for exact scope and validation limits.
++
++Infinity-X on the Galaxy Z Fold8 uses `f8-infinityx.json`. Its experimental
++replacements are `Fold8InfinitySystemUI.apk`, `Fold8InfinityUnfold.apk`,
++`OneOSSettingsSplit.apk` and `OneOSPixelStatusBar.apk`. The image-specific
++SystemUI/overlay roles activate only for f8 + infinityx41-findx9u. See
++[Infinity-X port](fold8-infinityx.md) for donor pins and runtime limits.
+diff --git a/scripts/make-fold8-infinityx.py b/scripts/make-fold8-infinityx.py
+new file mode 100644
+index 0000000..22bce06
+--- /dev/null
++++ b/scripts/make-fold8-infinityx.py
+@@ -0,0 +1,64 @@
++#!/usr/bin/env python3
++"""Build baseline and experimental Fold8 Infinity-X UI payloads from exact donors.
++
++Does not change package pins or publish. Review hashes before updating metadata.
++"""
++import argparse
++import hashlib
++from pathlib import Path
++import shutil
++import subprocess
++import tempfile
++
++ROOT = Path(__file__).resolve().parents[1]
++DONOR = '6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf'
++RELAY = 'ccf2fbddc462eca6d7cb7f112ca1b36620fe0ccd044ff6ba28bebe13cfe6b89e'
++
++def digest(path):
++    with path.open('rb') as stream:
++        return hashlib.file_digest(stream, 'sha256').hexdigest()
++
++def main():
++    p = argparse.ArgumentParser(description=__doc__)
++    p.add_argument('--systemui', type=Path, required=True)
++    p.add_argument('--relay', type=Path, required=True)
++    p.add_argument('--sdk', type=Path, required=True)
++    p.add_argument('--keystore', type=Path, default=Path.home()/'.android/debug.keystore')
++    p.add_argument('--out', type=Path, required=True)
++    a = p.parse_args()
++    if digest(a.systemui) != DONOR or digest(a.relay) != RELAY:
++        p.error('SystemUI or relay is not the pinned donor')
++    if a.out.exists():
++        p.error('Output already exists')
++    bt = a.sdk/'build-tools/36.1.0'
++    jar = a.sdk/'platforms/android-37.0/android.jar'
++    def run(*args):
++        subprocess.run(list(map(str,args)),check=True)
++    a.out.mkdir(parents=True)
++    baseline = a.out/'baseline'; baseline.mkdir()
++    overrides = a.out/'overrides'; overrides.mkdir()
++    shutil.copyfile(a.systemui,baseline/'Fold8InfinitySystemUI.apk')
++    shutil.copyfile(a.relay,baseline/'Fold8AngleRelay.dex')
++    run('python3',ROOT/'switcher/patches/fold8-infinityx/build-systemui.py',a.systemui,
++        '--zipalign',bt/'zipalign','--output',overrides/'Fold8InfinitySystemUI.apk')
++    for variant,output in [('stable',baseline/'Fold8InfinityUnfold.apk'),
++                           ('experimental',overrides/'Fold8InfinityUnfold.apk'),
++                           ('statusbar',overrides/'OneOSPixelStatusBar.apk'),
++                           ('settings_stable',baseline/'OneOSSettingsSplit.apk'),
++                           ('settings_experimental',overrides/'OneOSSettingsSplit.apk')]:
++        source = ROOT/'switcher/overlays'/(('lineage_'+variant) if variant.startswith('settings_') else ('infinityx_fold8_'+variant))
++        with tempfile.TemporaryDirectory(prefix='oneos-lineage-rro-') as temporary:
++            w = Path(temporary)
++            run(bt/'aapt2','compile','--dir',source/'res','-o',w/'res.zip')
++            run(bt/'aapt2','link','-o',w/'unsigned.apk','--manifest',source/'AndroidManifest.xml',
++                '-I',jar,'--min-sdk-version','31','--target-sdk-version','36','--auto-add-overlay',w/'res.zip')
++            run(bt/'zipalign','-f','4',w/'unsigned.apk',w/'aligned.apk')
++            run(bt/'apksigner','sign','--v4-signing-enabled','false','--ks',a.keystore,
++                '--ks-key-alias','androiddebugkey','--ks-pass','pass:android','--key-pass','pass:android',
++                '--out',output,w/'aligned.apk')
++    for folder in (baseline,overrides):
++        for item in sorted(folder.iterdir()):
++            print(f'{digest(item)}  {item}')
++
++if __name__ == '__main__':
++    main()
+diff --git a/scripts/release-patch-channel.py b/scripts/release-patch-channel.py
+index 4cb3a4f..186fcec 100644
+--- a/scripts/release-patch-channel.py
++++ b/scripts/release-patch-channel.py
+@@ -18,7 +18,7 @@ import urllib.request
+ ROOT = Path(__file__).resolve().parents[1]
+ # The only files a channel may replace (PatchManifest.REPLACEABLE in the app, which refuses every other
+ # difference): never guards.txt, a guarded jar or binary, a payload image or a script.
+-REPLACEABLE = {'Fold8SystemUI.apk', 'GlobalVerifiedAddons.tar', 'Fold8LineageSystemUI.apk', 'Fold8LineageUnfold.apk', 'OneOSPixelStatusBar.apk', 'OneOSSettingsSplit.apk'}
++REPLACEABLE = {'Fold8SystemUI.apk', 'GlobalVerifiedAddons.tar', 'Fold8LineageSystemUI.apk', 'Fold8LineageUnfold.apk', 'OneOSPixelStatusBar.apk', 'OneOSSettingsSplit.apk', 'Fold8InfinitySystemUI.apk', 'Fold8InfinityUnfold.apk'}
+ def source_config(source_id):
+     catalog = json.loads((ROOT / 'app-android/packages/patch-sources.json').read_text())
+     if catalog['schema'] != 1:
+diff --git a/scripts/test-fold8-pixel.py b/scripts/test-fold8-pixel.py
+index a979dd4..6b4a15e 100644
+--- a/scripts/test-fold8-pixel.py
++++ b/scripts/test-fold8-pixel.py
+@@ -8,7 +8,7 @@ class PrepareBoundaryTest(unittest.TestCase):
+   with tempfile.TemporaryDirectory() as tmp:
+    root=pathlib.Path(tmp);stage=root/'stage';stage.mkdir()
+    (stage/'.oneos_stage').write_text(json.dumps(dict(image=image,set=fileset,created=0),indent=2)+'\n')
+-   apk='SystemUI/SystemUI.apk' if image=='lineage24-infiniti' else 'SystemUIGoogle/SystemUIGoogle.apk'
++   apk='SystemUI/SystemUI.apk' if image in ('lineage24-infiniti','infinityx41-findx9u') else 'SystemUIGoogle/SystemUIGoogle.apk'
+    target=stage/'rootfs/system/system_ext/priv-app'/apk
+    target.parent.mkdir(parents=True);target.write_bytes(b'donor' if donor else b'wrong')
+    (stage/'data').mkdir();outside=root/'outside';outside.mkdir()
+@@ -16,7 +16,7 @@ class PrepareBoundaryTest(unittest.TestCase):
+    if symlink:(stage/'data/oneos_pixel_hinge').symlink_to(outside,target_is_directory=True)
+    bb=root/'busybox';bb.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$CALLS"\nexit 0\n');bb.chmod(0o755)
+    # Use a tiny fake donor while retaining all script branches and filesystem checks.
+-   script=root/'prepare.sh';script.write_text(SCRIPT.read_text().replace('9934d2dac326f56290f459b9e649185cd5531e1b6ae1f5a72b11e88f865f8b03',hashlib.sha256(b'donor').hexdigest()).replace('aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3',hashlib.sha256(b'donor').hexdigest()))
++   script=root/'prepare.sh';script.write_text(SCRIPT.read_text().replace('9934d2dac326f56290f459b9e649185cd5531e1b6ae1f5a72b11e88f865f8b03',hashlib.sha256(b'donor').hexdigest()).replace('aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3',hashlib.sha256(b'donor').hexdigest()).replace('6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf',hashlib.sha256(b'donor').hexdigest()))
+    tools=root/'tools';tools.mkdir()
+    for t in ('chown','chcon'):(tools/t).write_text('#!/bin/sh\nexit 0\n');(tools/t).chmod(0o755)
+    calls=root/'calls';env=dict(os.environ,STAGE=str(stage),BB=str(bb),ONEOS_PROFILE=profile,CALLS=str(calls),PATH=str(tools)+':'+os.environ['PATH'])
+@@ -33,6 +33,12 @@ class PrepareBoundaryTest(unittest.TestCase):
+   result,calls,_=self.run_prepare('f8u','lineage24-infiniti','lineage');self.assertEqual(0,result.returncode);self.assertNotIn('mount --bind',calls)
+   result,calls,_=self.run_prepare('f8','lineage24-infiniti','lineage',donor=False);self.assertEqual(3,result.returncode);self.assertNotIn('mount --bind',calls)
+   result,_,outside=self.run_prepare('f8','lineage24-infiniti','lineage',symlink=True);self.assertEqual(3,result.returncode);self.assertEqual([],outside)
++ def test_infinity_is_scoped_to_fold8_and_exact_image_set_and_donor(self):
++  result,calls,_=self.run_prepare('f8','infinityx41-findx9u','infinityx');self.assertEqual(0,result.returncode,result.stderr);self.assertIn('Fold8InfinitySystemUI.apk',calls)
++  for profile,fileset in [('f8u','infinityx'),('f8','lineage')]:
++   result,calls,_=self.run_prepare(profile,'infinityx41-findx9u',fileset);self.assertEqual(0,result.returncode);self.assertNotIn('mount --bind',calls)
++  result,calls,_=self.run_prepare('f8','infinityx41-findx9u','infinityx',donor=False);self.assertEqual(3,result.returncode);self.assertNotIn('mount --bind',calls)
++  result,_,outside=self.run_prepare('f8','infinityx41-findx9u','infinityx',symlink=True);self.assertEqual(3,result.returncode);self.assertEqual([],outside)
+  def test_unknown_donor_refuses_before_bind(self):
+   result,calls,_=self.run_prepare(donor=False);self.assertEqual(3,result.returncode);self.assertNotIn('mount --bind',calls)
+  def test_guest_symlink_cannot_redirect_payload_writes(self):
+diff --git a/scripts/test-patch-channel.py b/scripts/test-patch-channel.py
+index 4c2c3e3..ee7f8de 100644
+--- a/scripts/test-patch-channel.py
++++ b/scripts/test-patch-channel.py
+@@ -76,6 +76,10 @@ class ChannelPublisherTests(unittest.TestCase):
+             data=json.loads(manifest.read_text())
+             self.assertEqual('f8-lineage.json',manifest.name)
+             self.assertEqual('f1ce7c1add2dae73c681b29ccb86068864d5f42886bc1c22d249891f3bdf6261',data['imageSha256'])
++            infinity=publisher.prepare('infinityx','dynamic-infinity',inputs,root/'infinity',profile='f8')
++            infinity_data=json.loads(infinity.read_text())
++            self.assertEqual('f8-infinityx.json',infinity.name)
++            self.assertEqual('899ce57a069959b6463263074f35e5aadadeb7bb46f0c0a756d2ba64168545e2',infinity_data['imageSha256'])
+             with self.assertRaises(ValueError):
+                 publisher.prepare('lineage','wrong-device',inputs,root/'bad',profile='unknown')
+ 
+diff --git a/switcher/assets/fold8_pixel.sh b/switcher/assets/fold8_pixel.sh
+index d429aa7..8a40276 100644
+--- a/switcher/assets/fold8_pixel.sh
++++ b/switcher/assets/fold8_pixel.sh
+@@ -6,6 +6,7 @@ STAGE=${STAGE:-/data/local/tmp/oneos}
+ BB=${BB:-/data/oneos_bin/busybox}
+ fail() { echo "Fold8 Pixel: $*" >&2; exit 3; }
+ selected() {
++    if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "infinityx41-findx9u",$' "$STAGE/.oneos_stage" && grep -q '^  "set": "infinityx",$' "$STAGE/.oneos_stage"; then return 0; fi
+     if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "lineage24-infiniti",$' "$STAGE/.oneos_stage" && grep -q '^  "set": "lineage",$' "$STAGE/.oneos_stage"; then return 0; fi
+     grep -q '^  "image": "pixel11fold-yogi",$' "$STAGE/.oneos_stage" || return 1
+     case "${ONEOS_PROFILE:-}" in
+@@ -55,6 +56,11 @@ prepare)
+         payload=Fold8LineageSystemUI.apk
+         donor=aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3
+     fi
++    if grep -q '^  "image": "infinityx41-findx9u",$' "$STAGE/.oneos_stage"; then
++        target="$STAGE/rootfs/system/system_ext/priv-app/SystemUI/SystemUI.apk"
++        payload=Fold8InfinitySystemUI.apk
++        donor=6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf
++    fi
+     "$BB" umount -l "$target" 2>/dev/null || true
+     [ -f "$target" ] && [ ! -L "$target" ] || fail 'unexpected SystemUI path'
+     [ "$(sha256sum "$target" | cut -d' ' -f1)" = "$donor" ] || fail 'SystemUI donor differs'
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+index f578b3d..c7e8153 100755
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -3038,6 +3038,9 @@ fi
+ # SystemUI and the launcher at start (pixel-f8: Fold8PixelUnfold.apk, which also
+ # has the Fold8's 48dp bar and AOD; pixel-f8u: OneOSPixelUnfold.apk, the gates only).
+ UNFOLD_RRO=""
++if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "infinityx41-findx9u",$' "$STAGE/.oneos_stage"; then
++    UNFOLD_RRO=Fold8InfinityUnfold.apk
++fi
+ if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "lineage24-infiniti",$' "$STAGE/.oneos_stage"; then
+     UNFOLD_RRO=Fold8LineageUnfold.apk
+ fi
+@@ -3046,7 +3049,7 @@ if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "set": "pixel-f8",$' "$STAGE/.on
+ elif [ "${ONEOS_PROFILE:-}" = f8u ] && grep -q '^  "set": "pixel-f8u",$' "$STAGE/.oneos_stage"; then
+     UNFOLD_RRO=OneOSPixelUnfold.apk
+ fi
+-if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "lineage24-infiniti",$' "$STAGE/.oneos_stage" && [ -f "$STAGE/OneOSSettingsSplit.apk" ]; then
++if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "\(lineage24-infiniti\|infinityx41-findx9u\)",$' "$STAGE/.oneos_stage" && [ -f "$STAGE/OneOSSettingsSplit.apk" ]; then
+     mkdir -p "$STAGE/oem/overlay" &&
+         cp "$STAGE/OneOSSettingsSplit.apk" "$STAGE/oem/overlay/" &&
+         chmod 644 "$STAGE/oem/overlay/OneOSSettingsSplit.apk" &&
+diff --git a/switcher/assets/oneos_switch.sh b/switcher/assets/oneos_switch.sh
+index d16831f..505754c 100755
+--- a/switcher/assets/oneos_switch.sh
++++ b/switcher/assets/oneos_switch.sh
+@@ -2047,6 +2047,12 @@ if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "lineage24-infiniti",$'
+    [ "$(sha256sum "$STAGE/Fold8LineageSystemUI.apk" | cut -d' ' -f1)" != aa22961855b1f8a9d3dbbbc643922f9b216f6d411313e12eb8b70086287b84c3 ]; then
+     POSTURE_DEFAULT=live
+ fi
++# Infinity-X's contributor SystemUI uses the same native hinge posture; Stable keeps its original default.
++if [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q '^  "image": "infinityx41-findx9u",$' "$STAGE/.oneos_stage" &&
++   [ -f "$STAGE/Fold8InfinitySystemUI.apk" ] &&
++   [ "$(sha256sum "$STAGE/Fold8InfinitySystemUI.apk" | cut -d' ' -f1)" != 6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf ]; then
++    POSTURE_DEFAULT=live
++fi
+ GUEST_POSTURE_LIVE=0; [ "${ONEOS_GUEST_POSTURE:-$POSTURE_DEFAULT}" = live ] && GUEST_POSTURE_LIVE=1
+ GUEST_FOLD_FORM=0; [ "${ONEOS_GUEST_FORM:-fold}" = fold ] && GUEST_FOLD_FORM=1
+ # An OxygenOS image (its stable display size resource, see "stable display size"
+@@ -3329,7 +3335,7 @@ while true; do
+ 
+             # Pixel Fold8 / Fold8 Ultra: start the system-UID sensor reader in the guest namespace
+             # (fold8_pixel.sh prepare made runtime.sh only for those two sets).
+-            if { [ \"${ONEOS_PROFILE:-}\" = f8 ] || [ \"${ONEOS_PROFILE:-}\" = f8u ]; } && grep -q '\"set\": \"\\(pixel-f8u\\{0,1\\}\\|lineage\\)\",' \"$STAGE/.oneos_stage\" && [ -f \"$STAGE/data/oneos_pixel_hinge/runtime.sh\" ]; then
++            if { [ \"${ONEOS_PROFILE:-}\" = f8 ] || [ \"${ONEOS_PROFILE:-}\" = f8u ]; } && grep -q '\"set\": \"\\(pixel-f8u\\{0,1\\}\\|lineage\\|infinityx\\)\",' \"$STAGE/.oneos_stage\" && [ -f \"$STAGE/data/oneos_pixel_hinge/runtime.sh\" ]; then
+                 $BB nsenter -t \$PID -m /system/bin/sh /data/oneos_genv.sh /system/bin/sh /data/oneos_pixel_hinge/runtime.sh runtime >\"$STAGE/pixel_hinge_runtime.log\" 2>&1 || echo '[UI Activator] Pixel hinge relay unavailable; native sensor fallback active'
+             fi
+ 
+diff --git a/switcher/overlays/infinityx_fold8_experimental/AndroidManifest.xml b/switcher/overlays/infinityx_fold8_experimental/AndroidManifest.xml
+new file mode 100644
+index 0000000..dd9f114
+--- /dev/null
++++ b/switcher/overlays/infinityx_fold8_experimental/AndroidManifest.xml
+@@ -0,0 +1 @@
++<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="oneos.overlay.infinityx.fold8"><application android:hasCode="false"/><overlay android:targetPackage="android" android:isStatic="true" android:priority="999"/></manifest>
+diff --git a/switcher/overlays/infinityx_fold8_experimental/res/values/config.xml b/switcher/overlays/infinityx_fold8_experimental/res/values/config.xml
+new file mode 100644
+index 0000000..7843bde
+--- /dev/null
++++ b/switcher/overlays/infinityx_fold8_experimental/res/values/config.xml
+@@ -0,0 +1,9 @@
++<resources>
++<bool name="config_unfoldTransitionEnabled">true</bool>
++<bool name="config_unfoldTransitionHingeAngle">true</bool>
++<bool name="config_dozeAlwaysOnDisplayAvailable">true</bool>
++<string name="config_dozeComponent" translatable="false">com.android.systemui/com.android.systemui.doze.DozeService</string>
++<dimen name="status_bar_height_default">48dp</dimen>
++<dimen name="status_bar_height_portrait">48dp</dimen>
++<dimen name="status_bar_height_landscape">48dp</dimen>
++</resources>
+diff --git a/switcher/overlays/infinityx_fold8_stable/AndroidManifest.xml b/switcher/overlays/infinityx_fold8_stable/AndroidManifest.xml
+new file mode 100644
+index 0000000..dd9f114
+--- /dev/null
++++ b/switcher/overlays/infinityx_fold8_stable/AndroidManifest.xml
+@@ -0,0 +1 @@
++<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="oneos.overlay.infinityx.fold8"><application android:hasCode="false"/><overlay android:targetPackage="android" android:isStatic="true" android:priority="999"/></manifest>
+diff --git a/switcher/overlays/infinityx_fold8_stable/res/values/config.xml b/switcher/overlays/infinityx_fold8_stable/res/values/config.xml
+new file mode 100644
+index 0000000..4222770
+--- /dev/null
++++ b/switcher/overlays/infinityx_fold8_stable/res/values/config.xml
+@@ -0,0 +1,3 @@
++<resources>
++<bool name="config_dozeAlwaysOnDisplayAvailable">true</bool>
++</resources>
+diff --git a/switcher/overlays/infinityx_fold8_statusbar/AndroidManifest.xml b/switcher/overlays/infinityx_fold8_statusbar/AndroidManifest.xml
+new file mode 100644
+index 0000000..d308f91
+--- /dev/null
++++ b/switcher/overlays/infinityx_fold8_statusbar/AndroidManifest.xml
+@@ -0,0 +1,12 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Pixel's status bar in the guest (run 42, docs/pixel-guest.md): equal start and
++     end insets. Resources are mapped by name (SystemUIGoogle declares no
++     overlayable resources); scripts/make-overlays.sh builds it,
++     guest_prepare.sh puts it in the guest's /oem/overlay. -->
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    package="oneos.overlay.pixel.statusbar">
++    <application android:hasCode="false"/>
++    <overlay android:targetPackage="com.android.systemui"
++        android:isStatic="true"
++        android:priority="1"/>
++</manifest>
+diff --git a/switcher/overlays/infinityx_fold8_statusbar/res/values/dimens.xml b/switcher/overlays/infinityx_fold8_statusbar/res/values/dimens.xml
+new file mode 100644
+index 0000000..0f6f641
+--- /dev/null
++++ b/switcher/overlays/infinityx_fold8_statusbar/res/values/dimens.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- SystemUIGoogle's StatusBarContentInsetsProvider: start inset = the corner
++     padding, end inset = max(dot padding, corner padding). In the guest the corner
++     padding is the framework's 0dp (Pixel's vendor overlay sets it; the guest runs
++     on Samsung's vendor) and the privacy dot padding 20dp, so the battery sat
++     47-60 px further from the right edge than the clock from the left. Both 8dp:
++     equal insets left to right, right to left, and after a locale change. -->
++<resources>
++    <dimen name="rounded_corner_content_padding">8dp</dimen>
++    <dimen name="ongoing_appops_dot_min_padding">8dp</dimen>
++    <dimen name="status_bar_padding_end">4dp</dimen>
++    <dimen name="status_bar_padding_top">0dp</dimen>
++</resources>
+diff --git a/switcher/patches/fold8-infinityx/build-systemui.py b/switcher/patches/fold8-infinityx/build-systemui.py
+new file mode 100644
+index 0000000..b1ac546
+--- /dev/null
++++ b/switcher/patches/fold8-infinityx/build-systemui.py
+@@ -0,0 +1,90 @@
++#!/usr/bin/env python3
++"""Port Pixel hinge input and lock-screen double-tap gestures to the pinned Infinity-X donor.
++The supplied adapter DEX is used; its Java and compilation-only stubs are in source/.
++A rebuilt APK needs its SHA-256 pin updated in enable/undo scripts before use.
++"""
++import argparse, copy, hashlib, pathlib, shutil, struct, subprocess, tempfile, zipfile
++ROOT=pathlib.Path(__file__).resolve().parent
++PIXEL=ROOT.parent/'fold8-pixel'
++# apktool on PATH, else the repository's own (mysticgsi/tools/apktool, as the camera builds use).
++APKTOOL=['apktool'] if shutil.which('apktool') else ['java','-jar',str(sorted((ROOT.parents[2]/'mysticgsi/tools/apktool').glob('*.jar'))[0])]
++# Double tap to sleep (dt2s/, 0.4.59): helper classes added to classes2.
++ADDED={'com.android.systemui.unfold.updates.hinge.PixelFold8Hinge','oneos.sysui.OneOSDt2s','oneos.sysui.OneOSDt2s$1'}
++p=argparse.ArgumentParser(description=__doc__)
++p.add_argument('donor',type=pathlib.Path)
++p.add_argument('--zipalign',type=pathlib.Path,required=True)
++p.add_argument('--output',type=pathlib.Path,required=True)
++a=p.parse_args(); a.donor=a.donor.resolve();a.output=a.output.resolve()
++assert hashlib.sha256(a.donor.read_bytes()).hexdigest()=='6a99684e831f9635738189d39667debe0f8b798012fa4eb622a7cb87ad9b1ddf','Different donor'
++with tempfile.TemporaryDirectory(prefix='oneos-pixel-hinge-') as tmp:
++ w=pathlib.Path(tmp);decoded=w/'decoded'
++ subprocess.run(APKTOOL+['d','-f','-r','-o',str(decoded),str(a.donor)],check=True)
++ base=decoded/'smali_classes2/com/android/systemui/unfold/updates/hinge'
++ provider=base/'HingeSensorAngleProvider$stop$1.smali'
++ text=provider.read_text()
++ for value,method in [('v0','start'),('v1','stop')]:
++  needle=f'    iput-boolean {value}, p0, Lcom/android/systemui/unfold/updates/hinge/HingeSensorAngleProvider;->started:Z'
++  assert text.count(needle)==1
++  text=text.replace(needle,needle+f'\n\n    invoke-static {{p0}}, Lcom/android/systemui/unfold/updates/hinge/PixelFold8Hinge;->{method}(Lcom/android/systemui/unfold/updates/hinge/HingeSensorAngleProvider;)V')
++ provider.write_text(text)
++ listener=base/'HingeSensorAngleProvider$HingeAngleSensorListener.smali'
++ text=listener.read_text();a0=text.index('.method public final onSensorChanged(');b0=text.index('.end method',a0)+len('.end method')
++ body=""".method public final onSensorChanged(Landroid/hardware/SensorEvent;)V
++    .locals 2
++    iget-object v0, p0, Lcom/android/systemui/unfold/updates/hinge/HingeSensorAngleProvider$HingeAngleSensorListener;->this$0:Lcom/android/systemui/unfold/updates/hinge/HingeSensorAngleProvider;
++    iget-object v1, p1, Landroid/hardware/SensorEvent;->values:[F
++    const/4 p1, 0x0
++    aget v1, v1, p1
++    invoke-static {v0, v1}, Lcom/android/systemui/unfold/updates/hinge/PixelFold8Hinge;->onPublicAngle(Lcom/android/systemui/unfold/updates/hinge/HingeSensorAngleProvider;F)V
++    return-void
++.end method"""
++ listener.write_text(text[:a0]+body+text[b0:])
++ # Recompute Quick Settings header heights on a panel/configuration switch, preserving Infinity-X resource ids.
++ header=decoded/'smali_classes2/com/android/systemui/shade/ShadeHeaderController$configurationControllerListener$1.smali'
++ text=header.read_text();start=text.index('.method public final onConfigChanged(');end=text.index('.end method',start)
++ body=text[start:end];assert body.count('    .locals 5')==1 and body.count('    return-void')==1
++ body=body.replace('    .locals 5','    .locals 6\n\n    move-object v5, p0')
++ body=body.replace('    return-void','    invoke-virtual {v5}, Lcom/android/systemui/shade/ShadeHeaderController$configurationControllerListener$1;->onDensityOrFontScaleChanged()V\n\n    return-void')
++ header.write_text(text[:start]+body+text[end:])
++ import re
++ view=decoded/'smali_classes2/com/android/systemui/shade/NotificationShadeWindowView.smali'
++ text=view.read_text()
++ for signature,call in [('dispatchTouchEvent\\(Landroid/view/MotionEvent;\\)Z','invoke-static/range {p0 .. p1}, Loneos/sysui/OneOSDt2s;->shadeTouch(Landroid/view/View;Landroid/view/MotionEvent;)V'),('onAttachedToWindow\\(\\)V','invoke-static {p0}, Loneos/sysui/OneOSDt2s;->register(Landroid/view/View;)V')]:
++  rx=re.compile(r'(^\.method [^\n]*'+signature+r'\n    \.locals \d+\n)',re.M)
++  text,n=rx.subn(lambda m:m[0]+'\n    '+call+'\n',text);assert n==1,(signature,n)
++ view.write_text(text)
++ for helper in (PIXEL/'dt2s/smali').rglob('*.smali'):
++  dest=decoded/'smali_classes2'/helper.relative_to(PIXEL/'dt2s/smali');assert not dest.exists(),dest
++  dest.parent.mkdir(parents=True,exist_ok=True);shutil.copyfile(helper,dest)
++ subprocess.run(APKTOOL+['b','-o',str(w/'rebuilt.apk'),str(decoded)],check=True)
++ replacement=(decoded/'build/apk/classes2.dex').read_bytes()
++ with a.donor.open('rb') as raw,zipfile.ZipFile(a.donor) as src,zipfile.ZipFile(w/'raw.apk','w') as dst:
++  assert 'classes4.dex' not in src.namelist()
++  for info in src.infolist():
++   if info.filename=='classes2.dex':dst.writestr(info.filename,replacement,compress_type=zipfile.ZIP_STORED);continue
++   raw.seek(info.header_offset);header=raw.read(30);assert header[:4]==b'PK\x03\x04'
++   nl,el=struct.unpack_from('<HH',header,26);body=raw.read(nl+el+info.compress_size);desc=b''
++   if info.flag_bits&8:
++    desc=raw.read(4);desc+=raw.read(12 if desc==b'PK\x07\x08' else 8)
++   entry=copy.copy(info);entry.header_offset=dst.fp.tell();dst.fp.write(header+body+desc)
++   dst.filelist.append(entry);dst.NameToInfo[entry.filename]=entry;dst.start_dir=dst.fp.tell();dst._didModify=True
++  dst.writestr('classes4.dex',(PIXEL/'PixelFold8Hinge.dex').read_bytes(),compress_type=zipfile.ZIP_STORED)
++ subprocess.run([str(a.zipalign),'-f','-P','16','4',str(w/'raw.apk'),str(w/'aligned.apk')],check=True)
++ # Preserve the donor's certificate metadata for a trusted system-directory
++ # replacement. This does NOT create a content-valid OEM APK signature.
++ original=a.donor.read_bytes();e=original.rfind(b'PK\x05\x06');cd=struct.unpack_from('<I',original,e+16)[0]
++ assert original[cd-16:cd]==b'APK Sig Block 42'
++ size=struct.unpack_from('<Q',original,cd-24)[0];block=original[cd-size-8:cd]
++ assert struct.unpack_from('<Q',block)[0]==size
++ result=(w/'aligned.apk').read_bytes();e=result.rfind(b'PK\x05\x06');cd=struct.unpack_from('<I',result,e+16)[0]
++ result=bytearray(result[:cd]+block+result[cd:]);struct.pack_into('<I',result,e+len(block)+16,cd+len(block))
++ a.output.write_bytes(result)
++ with zipfile.ZipFile(a.donor) as src,zipfile.ZipFile(a.output) as dst:
++  assert set(dst.namelist())-set(src.namelist())=={'classes4.dex'}
++  for name in src.namelist():
++   if name!='classes2.dex':assert src.read(name)==dst.read(name),name
++ def classes(path):return subprocess.check_output(['python3',str(PIXEL/'list_dex_classes.py'),str(path),'.']).decode().splitlines()
++ before,after=classes(a.donor),classes(a.output)
++ assert len(after)==len(set(after)) and set(before).issubset(after)
++ assert set(after)-set(before)==ADDED,set(after)-set(before)
++print(hashlib.sha256(a.output.read_bytes()).hexdigest(),a.output)
+-- 
+2.56.0
+
