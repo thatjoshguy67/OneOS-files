@@ -186,6 +186,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 18. `oneui95-fold8-flex-panel-v0.5.32.patch`
 19. `oneui95-fold8-cover-and-flex-v0.5.32.patch`
 20. `oneui95-fold8-cover-nav-wallpaper-v0.5.32.patch`
+21. `oneui95-fold8-wallpaper-registration-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -414,9 +415,20 @@ override. It does not need to migrate wallpaper files or change the stock
 host's properties. Package the new framework and Home payload and update the
 existing One UI 9.5 stage before retesting both displays.
 
-Use the r23 framework. The original r22 patch reused a live string register
+Use the r23 or later framework. The original r22 patch reused a live string register
 in `CoreRune.<clinit>`, so ART rejected the class and the guest Zygote
 stopped. The r23 helper leaves that register intact. On the Fold8 and an
 Android 17 emulator, an isolated ART verifier run reproduced the r22 type
 error and cleared it with the r23 initializer. The guest boot and wallpaper
 selection still require on-device testing.
+
+For r24, run `scripts/patch-built-jar.sh` with the r23
+`Fold8OneUI95Services.jar` and `patch_fold8_wallpaper_tokens.py`. Enabling
+fold wallpaper routing exposed an incomplete setter in the phone donor
+that threw a null exception during wallpaper service attachment. The
+replacement registers the full physical display ID and marks the inner
+panel from its Fold8 port while holding the existing WindowManager lock.
+An isolated runtime probe on the Fold8 reproduced the r23 null exception
+and exercised the r24 setter with the inner and cover IDs and with missing
+and non-wallpaper tokens. Rebuild the OneOS package with the updated
+services pin before updating the 9.5 stage.

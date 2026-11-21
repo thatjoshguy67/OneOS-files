@@ -1,0 +1,30 @@
+diff --git a/app-android/packages/oneui95.sha256 b/app-android/packages/oneui95.sha256
+--- a/app-android/packages/oneui95.sha256
++++ b/app-android/packages/oneui95.sha256
+@@ -40,5 +40,5 @@
+ da3b8197d7d5edd7aff1cba7f198cb8517eb4ca8633975ad862dcc9f7ebf2a77  Fold8OneUI95Framework.apk
+ e553e3a094bcbab84279ca6d17741204ebfe9853bee60e52016c96cecfdc9b33  Fold8OneUI95SystemUI.apk
+-3ee9ea5edc75351a18de6e8b06e39735618c0c094ae271df4953a6566751712e  Fold8OneUI95Services.jar
++4d32d9dff9cf6ab85c12230a534536668a677091b43b9cb3e7f2d8ebfdbf6b77  Fold8OneUI95Services.jar
+ 27348a492a137bf99a4d90a5937e01c7c06b405299886fe82d147b6cca162f7e  Fold8OneUI95Settings.apk
+ 342f7ac38f004f3bcb842e3505a95edf48d789c2bf206296df44ee53422c2090  Fold8OneUI95Home.apk
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -40,5 +40,5 @@
+ da3b8197d7d5edd7aff1cba7f198cb8517eb4ca8633975ad862dcc9f7ebf2a77  Fold8OneUI95Framework.apk
+ e553e3a094bcbab84279ca6d17741204ebfe9853bee60e52016c96cecfdc9b33  Fold8OneUI95SystemUI.apk
+-3ee9ea5edc75351a18de6e8b06e39735618c0c094ae271df4953a6566751712e  Fold8OneUI95Services.jar
++4d32d9dff9cf6ab85c12230a534536668a677091b43b9cb3e7f2d8ebfdbf6b77  Fold8OneUI95Services.jar
+ 27348a492a137bf99a4d90a5937e01c7c06b405299886fe82d147b6cca162f7e  Fold8OneUI95Settings.apk
+ 342f7ac38f004f3bcb842e3505a95edf48d789c2bf206296df44ee53422c2090  Fold8OneUI95Home.apk
+diff --git a/switcher/assets/guest_start.sh b/switcher/assets/guest_start.sh
+--- a/switcher/assets/guest_start.sh
++++ b/switcher/assets/guest_start.sh
+@@ -2017,5 +2017,5 @@
+ if [ "${ONEOS_PROFILE:-}" = f8 ] && [ -f /data/.oneui95-fold8-secondary-home-temporary ] &&
+    [ ! -L /data/.oneui95-fold8-secondary-home-temporary ] &&
+-   [ "$($BB sha256sum /system/framework/services.jar | cut -d' ' -f1)" = "3ee9ea5edc75351a18de6e8b06e39735618c0c094ae271df4953a6566751712e" ]; then
++   [ "$($BB sha256sum /system/framework/services.jar | cut -d' ' -f1)" = "4d32d9dff9cf6ab85c12230a534536668a677091b43b9cb3e7f2d8ebfdbf6b77" ]; then
+     FOLD8_RESTORE_DEX_HOME=1
+ fi
