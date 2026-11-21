@@ -1,0 +1,62 @@
+diff --git a/app-android/packages/oneui95.sha256 b/app-android/packages/oneui95.sha256
+--- a/app-android/packages/oneui95.sha256
++++ b/app-android/packages/oneui95.sha256
+@@ -39,3 +39,3 @@
+ ebe75fd4c0835d95e9013d7b0af8d6526c14572c6b8e920a46efff7e294061fe  samcam_a_oneui.tar
+-a5c0e10445ccafc65a3783708231d7dacd2c7251d1b39e9a6ba0954ce0ca0190  Fold8OneUI95Framework.apk
++da3b8197d7d5edd7aff1cba7f198cb8517eb4ca8633975ad862dcc9f7ebf2a77  Fold8OneUI95Framework.apk
+ c0feb7be90fdaeb8e5303e4dcfd1eea78d17c12f4b79ca158a5ec393008e34eb  Fold8OneUI95SystemUI.apk
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -39,3 +39,3 @@
+ ebe75fd4c0835d95e9013d7b0af8d6526c14572c6b8e920a46efff7e294061fe  samcam_a_oneui.tar
+-a5c0e10445ccafc65a3783708231d7dacd2c7251d1b39e9a6ba0954ce0ca0190  Fold8OneUI95Framework.apk
++da3b8197d7d5edd7aff1cba7f198cb8517eb4ca8633975ad862dcc9f7ebf2a77  Fold8OneUI95Framework.apk
+ c0feb7be90fdaeb8e5303e4dcfd1eea78d17c12f4b79ca158a5ec393008e34eb  Fold8OneUI95SystemUI.apk
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -4752,3 +4752,5 @@
+ DS_DEFAULT=vendor
+-FOLD8_COLOR_HINGE=0
++FOLD8_HINGE=0
++FOLD8_HINGE_MIN=15
++FOLD8_HINGE_MAX=165
+ # 0.4.38: the Z Fold8 runs the Find N6 global image with n6-f8u too (n6-f8's UI
+@@ -4761,3 +4763,13 @@
+     DS_DEFAULT=fold8-hinge
+-    FOLD8_COLOR_HINGE=1
++    FOLD8_HINGE=1
++elif [ "${ONEOS_PROFILE:-}" = f8 ] && [ "$FORM" = fold ] &&
++        grep -q '^  "set": "oneui95",$' "$STAGE/.oneos_stage" &&
++        grep -qx 'ro.build.PDA=S948BXXU6ZZKN' "$ROOTFS/system/build.prop" 2>/dev/null; then
++    # The 9.5 donor uses Android's DeviceStateProviderImpl. Read the Fold8's
++    # continuous sensor directly and keep the lid switch authoritative for
++    # closed. Use the Flex Restore module's entry range for tabletop.
++    DS_DEFAULT=fold8-hinge
++    FOLD8_HINGE=1
++    FOLD8_HINGE_MIN=50
++    FOLD8_HINGE_MAX=135
+ fi
+@@ -4771,7 +4783,7 @@
+ fi
+-if [ "$FOLD8_COLOR_HINGE" = 1 ] && [ "${ONEOS_GUEST_DEVICE_STATES:-$DS_DEFAULT}" = fold8-hinge ]; then
++if [ "$FOLD8_HINGE" = 1 ] && [ "${ONEOS_GUEST_DEVICE_STATES:-$DS_DEFAULT}" = fold8-hinge ]; then
+     mkdir -p "$DSDIR"
+-    cat > "$DSDIR/device_state_configuration.xml" <<'F8DSX'
++    cat > "$DSDIR/device_state_configuration.xml" <<F8DSX
+ <?xml version="1.0" encoding="utf-8"?>
+-<!-- OneOS Fold8 / Fold8 Ultra ColorOS hinge. Lid switch owns closed/open panels. -->
++<!-- Fold8 hinge. Lid switch owns closed/open panels. -->
+ <device-state-config>
+@@ -4804,3 +4816,3 @@
+                 <name>Folding Angle  Non-wakeup</name>
+-                <value><min-inclusive>15</min-inclusive><max-inclusive>165</max-inclusive></value>
++                <value><min-inclusive>$FOLD8_HINGE_MIN</min-inclusive><max-inclusive>$FOLD8_HINGE_MAX</max-inclusive></value>
+             </sensor>
+@@ -4820,3 +4832,3 @@
+     chmod 644 "$DSDIR/device_state_configuration.xml"
+-    echo "Guest device states: fold hinge (0 closed, 2 half-open 15..165 degrees, 3 open)"
++    echo "Guest device states: fold hinge (0 closed, 2 half-open $FOLD8_HINGE_MIN..$FOLD8_HINGE_MAX degrees, 3 open)"
+ elif [ "${ONEOS_GUEST_DEVICE_STATES:-$DS_DEFAULT}" = oneos ]; then

@@ -6,6 +6,12 @@
     <integer-array name="config_foldedDeviceStates"><item>0</item><item>1</item></integer-array>
     <integer-array name="config_halfFoldedDeviceStates"><item>2</item></integer-array>
     <integer-array name="config_openDeviceStates"><item>3</item></integer-array>
+    <string-array name="config_device_state_postures">
+        <item>0:1</item>
+        <item>1:1</item>
+        <item>2:2</item>
+        <item>3:3</item>
+    </string-array>
     <integer-array name="config_deviceStatesOnWhichToSleep"><item>0</item></integer-array>
     <integer-array name="config_deviceStatesOnWhichToWakeUp"><item>2</item><item>3</item></integer-array>
     <bool name="config_fold_lock_behavior">true</bool>

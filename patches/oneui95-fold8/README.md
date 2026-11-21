@@ -179,6 +179,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 11. `oneui95-systemui-shared-code-v0.5.32.patch`
 12. `oneui95-fold8-panel-parity-v0.5.32.patch`
 13. `oneui95-fold8-taskbar-v0.5.32.patch`
+14. `oneui95-fold8-tabletop-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -191,10 +192,11 @@ the updater can receive and verify it.
 Build and embed these four assets in the `oneui95` set:
 
 - `Fold8OneUI95Framework.apk`. Build `fold8-framework-rro` with AAPT2, then
-  align and sign it. The 19 resource mappings use the values from the stock
+  align and sign it. The resource mappings use the values from the stock
   Fold8 framework and its product and vendor overlays. They cover the
   two-panel cutouts, status-bar insets, fold state IDs, close-to-sleep,
-  reopen wake states, fold-lock support and unfold transitions.
+  reopen wake states, fold-lock support, unfold transitions and the
+  SystemUI posture map for states 0 through 3.
   During guest preparation the resource APK is placed on a private tmpfs
   so overlayfs can use it on the Fold8's casefold-capable storage. The
   stock navigation settings use a 568dp breakpoint, between the
@@ -265,11 +267,11 @@ and Samsung's floating features.
 
 | Area | Finding |
 | --- | --- |
-| Quick Settings, Home and navigation | The fold-aware SystemUI path, configuration panel types, native launcher workspace split and taskbar enablement are included. |
+| Quick Settings, Home and navigation | The patch supplies the native Fold Home grids (6 × 8 inside and 4 × 6 on the cover), reports panel IDs 0 and 5, and makes taskbar eligibility and navigation handoff use the same active display size. The running guest verified one navigation window on the cover and one taskbar window after opening, with distinct fixed and floating window geometry. The Home panel-ID change and inner widget sizing need a boot of the packaged update. |
 | Lock screen, AOD and wallpaper | The feature merge takes `LOCKSCREEN,ROTATIONAL,AOD`, the stock lid/rotatable wallpaper policy and the Fold8 camera-indicator geometry. The overlay restores the stock per-panel cutout and status-bar resources. |
 | Samsung Keyboard and half-fold | Both guest feature XMLs get the stock half-fold flag and keyboard fold UX version `81`. The framework overlay declares folded states 0 and 1, half-folded state 2 and open state 3. The guest's physical posture transitions need a device check. |
 | Rotation, continuity and window management | The donor compiles out Samsung's separate per-panel rotation, app continuity and freeform-window folding policies. These require ports of the affected call sites. The hardware state and basic fold-lock path are included. |
-| Flex Panel | Both include the activity. Stock SystemUI’s Flex Panel controller registers a device-state callback and settings observers. The guest controller omits those listeners, so the functional port is pending. |
+| Flex Panel and tabletop | The stock framework disables the dedicated panel. The user's Flex Restore module recovers it with framework, Settings and SystemUI hooks. The 9.5 donor uses Android's `DeviceStateProviderImpl` in place of the Samsung posture provider those hooks target. The tabletop patch configures the physical Fold8 angle sensor for state 2 at 50–135° on the inner panel. That range comes from the module's entry threshold. Rotation policy and the native split-panel launch still need ports and runtime verification. |
 | Rear-screen and dual-screen modes | The stock framework's concurrent rear-display state is absent from the guest's device-state topology. Its configuration remains a separate port. |
 | Boot animation | The guest's Samsung renderer already supports main and sub QMGs. The boot preparation validates the stock inner (2448 × 1848) and cover (1248 × 1972) QMG pairs and mounts them over the guest's media directory. The renderer and the animations still need a physical boot check. |
 
