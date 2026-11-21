@@ -178,6 +178,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 10. `oneui95-fold8-boot-animation-v0.5.32.patch`
 11. `oneui95-systemui-shared-code-v0.5.32.patch`
 12. `oneui95-fold8-panel-parity-v0.5.32.patch`
+13. `oneui95-fold8-taskbar-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -205,7 +206,12 @@ Build and embed these four assets in the `oneui95` set:
   method reference. The old code item is shared with Kotlin's empty-list
   `size()` and iterator methods. The patch selects `LANDSCAPE_FOLD` on the
   phone branch. The existing 9.5 interactor chooses `WALLET` when closed
-  and `WIDE_WALLET` when open.
+  and `WIDE_WALLET` when open. In the Fold navigation branch, the existing
+  large-window check distinguishes the stock 475 dp cover from the 704 dp
+  inner screen, including during configuration changes. Taskbar eligibility
+  uses the same check. SystemUI hands the navigation window to Launcher
+  using its native remove and restore path because the phone donor lacks
+  the Fold window manager's visibility arbitration.
 - `Fold8OneUI95Services.jar`. Run OneOS's `scripts/patch-built-jar.sh` with the
   guarded `services_patched.jar` pinned at
   `6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca`,

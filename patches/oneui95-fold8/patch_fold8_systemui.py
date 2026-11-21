@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Restore stock Fold8 navigation and posture-aware Quick Settings in S948BXXU6ZZKN."""
+"""Restore Fold8 navigation, taskbar, and posture-aware Quick Settings in S948BXXU6ZZKN."""
 import hashlib
 from pathlib import Path
 import struct
@@ -14,6 +14,11 @@ TRUE_METHOD = b"supportsTaskbar"
 QS = b"Lcom/android/systemui/util/SecQsUiDisplayModeInteractor;"
 QS_METHOD = b"getDeviceFormFactor"
 FORM = QS[:-1] + b"$DeviceFormFactor;"
+TASKBAR = b"Lcom/android/systemui/navigationbar/store/NavBarStateManagerImpl;"
+TASKBAR_METHOD = b"getTaskBarState"
+NAV_SIZE = b"Lcom/android/systemui/navigationbar/util/NavigationBarLargeScreenUtil;"
+CONTEXT = b"Landroid/content/Context;"
+POLICY = b"Lcom/android/systemui/BasicRune;"
 OLD = b"\x12\x00\x0f\x00"  # const/4 v0, 0; return v0
 NEW = b"\x12\x10\x0f\x00"  # const/4 v0, 1; return v0 (F971BXXS3AZIJ)
 
@@ -38,7 +43,8 @@ def string_at(dex, table, index):
     return bytes(dex[at:dex.index(0, at)])
 
 
-def method_offsets(dex, header, owner_name, method_name, result_type, *, include_reference=False):
+def method_offsets(dex, header, owner_name, method_name, result_type, *,
+                   include_reference=False, parameter_types=()):
     strings, types = u32(dex, header + 60), u32(dex, header + 68)
     protos, methods = u32(dex, header + 76), u32(dex, header + 92)
     class_count, classes = struct.unpack_from("<II", dex, header + 96)
@@ -68,7 +74,10 @@ def method_offsets(dex, header, owner_name, method_name, result_type, *, include
                 owner, proto, name = struct.unpack_from("<HHI", dex, methods + method * 8)
                 if owner == type_index and string(name) == method_name:
                     result, parameters = struct.unpack_from("<II", dex, protos + proto * 12 + 4)
-                    if string(u32(dex, types + result * 4)) == result_type and parameters == 0:
+                    parameter_count = u32(dex, parameters) if parameters else 0
+                    args = struct.unpack_from(f"<{parameter_count}H", dex, parameters + 4) if parameters else ()
+                    if (string(u32(dex, types + result * 4)) == result_type
+                            and tuple(string(u32(dex, types + arg * 4)) for arg in args) == parameter_types):
                         yield (code, reference, at - reference) if include_reference else code
 
 
@@ -132,12 +141,61 @@ def redirect_navigation_gate(dex, header, end, entry):
     dex[reference:reference + length] = encoded
 
 
+def patch_taskbar(dex, code, header, end):
+    if not header < code + 16 + 38 * 2 <= end or u32(dex, code + 12) != 522:
+        raise ValueError("Unexpected taskbar method size")
+    at = code + 16 + 6 * 2
+    expected = (
+        0x0254, 0x0e3d, 0x106e, 0x02dc, 0x0002, 0x020c, 0x106e, 0x03e8,
+        0x0002, 0x020c, 0x2252, 0x005d, 0x1312, 0x0239, 0x0003, 0x1028,
+        0x0071, 0xc716, 0x0000, 0x020a, 0x0239, 0x000b, 0x0071, 0xc70a,
+        0x0000, 0x020a, 0x0238, 0x0003, 0x0328, 0x0212, 0x0228, 0x3201,
+    )
+    if struct.unpack_from("<32H", dex, at) != expected:
+        raise ValueError("Unexpected taskbar eligibility instructions")
+    # Use the same panel classifier as onConfigChanged, so opening and
+    # closing the device triggers the native taskbar handoff.
+    updated = (
+        0x0254, 0x0e3d,                 # load Context
+        0x1071, 0x23bb, 0x0002, 0x020a, # NavigationBarLargeScreenUtil.isLargeScreen()
+        0x1312, 0x1928,                 # const/4 v3, 1; goto existing eligibility
+    ) + (0,) * 24
+    struct.pack_into("<32H", dex, at, *updated)
+
+
+def patch_nav_size(dex, code, header, end):
+    at = code + 16 + 16 * 2
+    if (not header < at + 12 <= end or u32(dex, code + 12) != 27
+            or struct.unpack_from("<6H", dex, at) !=
+            (0x1071, 0xc701, 0x0001, 0x010a, 0x0139, 0x0003)):
+        raise ValueError("Unexpected navigation panel classifier instructions")
+    # The Fold8 changes display 0 between physical panels. The donor's
+    # display context can retain its old Samsung panel ID. Use the platform
+    # large-window check (600 dp) in the Fold branch. The cover is 475 dp
+    # and the inner display is 704 dp at stock density.
+    struct.pack_into("<6H", dex, at, 0x1071, 0xc2d4, 0x0001, 0x010a, 0x0138, 0x0003)
+
+
+def patch_nav_visibility(dex, code, header, end):
+    # The donor's framework lacks Fold-specific visibility arbitration. Use
+    # SystemUI's native remove/restore handoff when it delegates to Launcher.
+    at = code + 16 + 741 * 2
+    if (not header < at + 12 <= end or u32(dex, code + 12) < 747
+            or struct.unpack_from("<6H", dex, at) !=
+            (0x0202, 0x0010, 0x0228, 0x3201, 0x026a, 0x0570)):
+        raise ValueError("Unexpected navigation visibility policy instructions")
+    struct.pack_into("<2H", dex, at, 0x0212, 0x0000)  # const/4 v2, 0; nop
+
+
 def patch(apk, output):
     with zipfile.ZipFile(apk) as archive:
         dex = bytearray(archive.read("classes.dex"))
     header = 0
     nav = []
     qs = []
+    taskbar = []
+    visibility = []
+    nav_size = []
     while header < len(dex):
         if dex[header:header+8] != b"dex\n041\0":
             raise ValueError("Expected a DEX 041 container")
@@ -151,13 +209,21 @@ def patch(apk, output):
             raise ValueError("Invalid original DEX digests")
         nav.extend((code, header, end) for code in method_offsets(dex, header, NAV, NAV_METHOD, b"Z", include_reference=True))
         qs.extend((code, header, end) for code in method_offsets(dex, header, QS, QS_METHOD, FORM))
+        taskbar.extend((code, header, end) for code in method_offsets(
+            dex, header, TASKBAR, TASKBAR_METHOD, b"I", parameter_types=(b"Z",)))
+        nav_size.extend((code, header, end) for code in method_offsets(
+            dex, header, NAV_SIZE, b"isLargeScreen", b"Z", parameter_types=(CONTEXT,)))
+        visibility.extend((code, header, end) for code in method_offsets(dex, header, POLICY, b"<clinit>", b"V"))
         header = end
-    if len(nav) != 1 or len(qs) != 1:
-        raise ValueError(f"Expected one navigation and one Quick Settings gate, found {len(nav)} and {len(qs)}")
+    if any(len(entries) != 1 for entries in (nav, qs, taskbar, nav_size, visibility)):
+        raise ValueError("Expected one of each navigation, Quick Settings, and taskbar gate")
     entry, header, end = nav[0]
     redirect_navigation_gate(dex, header, end, entry)
     patch_qs(dex, *qs[0])
-    for _, header, end in (nav[0], qs[0]):
+    patch_taskbar(dex, *taskbar[0])
+    patch_nav_size(dex, *nav_size[0])
+    patch_nav_visibility(dex, *visibility[0])
+    for header, end in {entry[1:] for entry in (nav[0], qs[0], taskbar[0], nav_size[0], visibility[0])}:
         dex[header+12:header+32] = hashlib.sha1(dex[header+32:end]).digest()
         struct.pack_into("<I", dex, header + 8, zlib.adler32(dex[header+12:end]))
     Path(output).write_bytes(dex)

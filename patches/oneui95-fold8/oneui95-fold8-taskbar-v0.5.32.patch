@@ -1,0 +1,40 @@
+diff --git a/app-android/packages/oneui95.sha256 b/app-android/packages/oneui95.sha256
+--- a/app-android/packages/oneui95.sha256
++++ b/app-android/packages/oneui95.sha256
+@@ -3,3 +3,3 @@
+ a2efd9b1170675a011ce4e667dcdd1b277c419617656dd3c1b77ff537f000afd  OneOSFoldCutout.apk
+-9109053d8b15d6b3cf14c4cb2c44713e95d093780a1f5fbc5a4bdf11f66665c0  OneOSGuest.apk
++77a3c1625c717313f93c0aa2bb31562a24abe04a4a8709aa78e90a512b22ebda  OneOSGuest.apk
+ f6e6cc651468f33182f9190c89c3432c8063d06040376672110fef62a320df52  OneOSPhoneInjection.apk
+@@ -39 +39,5 @@
+ ebe75fd4c0835d95e9013d7b0af8d6526c14572c6b8e920a46efff7e294061fe  samcam_a_oneui.tar
++a5c0e10445ccafc65a3783708231d7dacd2c7251d1b39e9a6ba0954ce0ca0190  Fold8OneUI95Framework.apk
++c0feb7be90fdaeb8e5303e4dcfd1eea78d17c12f4b79ca158a5ec393008e34eb  Fold8OneUI95SystemUI.apk
++159fab11472e72f62df54fa1048c953fb17bd6c2a847e77d7a88a9e705f37081  Fold8OneUI95Services.jar
++79b9630d305fe6652bea51d6508e35bc292a9b3b3fce04e88d51b76933910dd8  Fold8OneUI95Settings.apk
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -40,3 +40,3 @@
+ a5c0e10445ccafc65a3783708231d7dacd2c7251d1b39e9a6ba0954ce0ca0190  Fold8OneUI95Framework.apk
+-db9c8f41cfdf40830a90310b6f060475e819bb2466f80615a5548a9e885ead88  Fold8OneUI95SystemUI.apk
++c0feb7be90fdaeb8e5303e4dcfd1eea78d17c12f4b79ca158a5ec393008e34eb  Fold8OneUI95SystemUI.apk
+ 159fab11472e72f62df54fa1048c953fb17bd6c2a847e77d7a88a9e705f37081  Fold8OneUI95Services.jar
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -1760,9 +1760,9 @@
+ oneui95_hide_media_chip() { # <pinned SystemUI.apk> <temporary APK>
+-    [ "$($BB sha256sum "$1" | cut -d' ' -f1)" = "db9c8f41cfdf40830a90310b6f060475e819bb2466f80615a5548a9e885ead88" ] &&
++    [ "$($BB sha256sum "$1" | cut -d' ' -f1)" = "c0feb7be90fdaeb8e5303e4dcfd1eea78d17c12f4b79ca158a5ec393008e34eb" ] &&
+         cp "$1" "$2" &&
+-        printf '\271\307\015\107' | $BB dd of="$2" bs=1 seek=88797198 conv=notrunc 2>/dev/null &&
+-        printf '\303\333\377\042\270\370\327\167\342\000\245\350\075\160\031\267\023\004\043\371\377\036\242\375' | $BB dd of="$2" bs=1 seek=113723616 conv=notrunc 2>/dev/null &&
++        printf '\272\050\137\206' | $BB dd of="$2" bs=1 seek=88797198 conv=notrunc 2>/dev/null &&
++        printf '\073\334\316\212\144\357\155\214\350\110\104\253\004\165\225\375\124\236\153\157\210\316\305\364' | $BB dd of="$2" bs=1 seek=113723616 conv=notrunc 2>/dev/null &&
+         printf '\002' | $BB dd of="$2" bs=1 seek=118344105 conv=notrunc 2>/dev/null &&
+-        printf '\271\307\015\107' | $BB dd of="$2" bs=1 seek=142267198 conv=notrunc 2>/dev/null &&
+-        [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "3dc76b7305f2279e19c20e4708686f0645876ebd4b04acefc17ecd862c87570a" ]
++        printf '\272\050\137\206' | $BB dd of="$2" bs=1 seek=142267198 conv=notrunc 2>/dev/null &&
++        [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "604cfa56fa1e4d1c7d644c1f023439cbddbe8e04e3dd118debc6a2b4bcd38b25" ]
+ }
