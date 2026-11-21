@@ -175,6 +175,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 7. `oneui95-feature-flags-v0.5.32.patch`
 8. `oneui95-feature-entry-v0.5.32.patch`
 9. `oneui95-fold8-boot-fix-v0.5.32.patch`
+10. `oneui95-fold8-boot-animation-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's mirroring setting from the host once. Other Home
@@ -249,7 +250,7 @@ and Samsung's floating features.
 | Rotation, continuity and window management | The donor compiles out Samsung's separate per-panel rotation, app continuity and freeform-window folding policies. These require ports of the affected call sites. The hardware state and basic fold-lock path are included. |
 | Flex Panel | The stock Fold8 and donor both compile the dedicated Flex Panel gates off. The patch carries the stock half-fold support. |
 | Rear-screen and dual-screen modes | The stock framework's concurrent rear-display state is absent from the guest's device-state topology. Its configuration remains a separate port. |
-| Boot animation | The early Samsung renderer and its animation assets run before Android's display configuration. The density, cutout and UI patches apply once the guest Android framework starts. |
+| Boot animation | The guest's Samsung renderer already supports main and sub QMGs. The boot preparation validates the stock inner (2448 × 1848) and cover (1248 × 1972) QMG pairs and mounts them over the guest's media directory. The renderer and the animations still need a physical boot check. |
 
 The set also carries the separate One UI 9.5 experiments for Samsung's
 `VOICE` Audio Eraser capability, the stock audio separator value when missing

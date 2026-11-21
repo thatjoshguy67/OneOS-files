@@ -1,0 +1,45 @@
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -1767,6 +1767,41 @@
+         printf '\276\150\171\337' | $BB dd of="$2" bs=1 seek=142267198 conv=notrunc 2>/dev/null &&
+         [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "0aeced292a166a17a1edc3f16ffaeb7460b7c87b92ea4ec6848f2151e203801a" ]
+ }
++
++# Samsung's renderer matches the canvases of the main and sub QMGs to its
++# physical displays. The donor has a phone-sized pair and no cover resources.
++# Use the running Fold8 firmware's four assets in the guest only.
++fold8_boot_media() (
++    host_media=/proc/1/root/system/media
++    guest_media="$ROOTFS/system/media"
++    boot_media="$STAGE/oneui95-boot-media"
++    [ -d "$guest_media" ] && [ ! -L "$guest_media" ] && [ ! -L "$ROOTFS/system" ] &&
++        [ ! -L "$boot_media" ] || return 1
++    for name in bootsamsung.qmg bootsamsungloop.qmg sub_bootsamsung.qmg sub_bootsamsungloop.qmg; do
++        asset="$host_media/$name"
++        [ -f "$asset" ] && [ ! -L "$asset" ] && [ -r "$asset" ] || return 1
++        set -- $(od -An -tu2 -j6 -N4 "$asset")
++        case "$name:$*" in
++            bootsamsung*.qmg:2448\ 1848|sub_bootsamsung*.qmg:1248\ 1972) ;;
++            *) return 1 ;;
++        esac
++    done
++    mkdir -p "$boot_media" &&
++        $BB mount -t tmpfs -o size=2m,mode=755 tmpfs "$boot_media" &&
++        $BB mount --make-private "$boot_media" &&
++        cp "$host_media/bootsamsung.qmg" "$host_media/bootsamsungloop.qmg" \
++            "$host_media/sub_bootsamsung.qmg" "$host_media/sub_bootsamsungloop.qmg" "$boot_media/" &&
++        chmod 644 "$boot_media/"*.qmg &&
++        $BB chcon -R u:object_r:system_file:s0 "$boot_media" &&
++        $BB mount -t overlay overlay -o "ro,lowerdir=$boot_media:$guest_media" "$guest_media"
++)
++if [ "$ONEUI95_FOLD8" = 1 ]; then
++    if fold8_boot_media; then
++        echo "One UI 9.5: mounted native Fold8 inner and cover boot animations"
++    else
++        echo "!!! One UI 9.5: Fold8 boot animation assets unavailable, using donor resources"
++    fi
++fi
+ 
+ # Fold8 framework resources are applied by an immutable RRO before zygote.
+ # The S26 Ultra product overlay remains available for all unrelated resources.
