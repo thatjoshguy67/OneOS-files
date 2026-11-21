@@ -1,0 +1,123 @@
+diff --git a/app-android/app/src/full/assets/root/oneos_root.sh b/app-android/app/src/full/assets/root/oneos_root.sh
+--- a/app-android/app/src/full/assets/root/oneos_root.sh
++++ b/app-android/app/src/full/assets/root/oneos_root.sh
+@@ -176,5 +176,5 @@
+ SET_NOTHINGA="NothingLauncher3_patched.apk OneOSBrightnessRange.apk OneOSBrightnessRange34.apk OneOSFoldCutout.apk OneOSGuest.apk OneOSNtAbout.apk OneOSNtAboutFlip.apk OneOSNtAboutFold8.apk OneOSNtAboutPhone.apk OneOSNtAboutS26U.apk OneOSNtEssentialKey.apk OneOSPhoneInjection.apk OneOSTabletQs.apk SystemUI_patched.apk adservices_payload.img appsearch_payload.img art_payload.img bt_payload.img cellbroadcast_payload.img configinfrastructure_payload.img crashrecovery_payload.img extservices_payload.img framework_patched.jar gmssystem_payload.img guards.txt healthfitness_payload.img i18n_payload.img ims-ext-common_patched.jar libbootanimation_preapex_patched.so libcamera_client_patched.so mediaprovider_payload.img nfcservices_payload.img nothing_product_media.tar nt-telephony-common_patched.jar ondevicepersonalization_payload.img oneos-apex-requires.txt oneos-telephony.jar oneos-telephony.sha256 permission_payload.img rkpd_payload.img runtime_payload.img samcam_a.tar sdkext_payload.img service.incremental_patched.so services_patched.jar surfaceflinger_patched telephony-common_patched.jar vold_patched wifi_payload.img"
+ # One UI 9.5 (0.5.22): the Galaxy S26 Ultra build's guarded jars and camera libraries, signal poll, payloads and software floating features (set r1); no vold, no tethering.
+-SET_ONEUI="Fold8OneUI95Framework.apk Fold8OneUI95Services.jar Fold8OneUI95Settings.apk Fold8OneUI95SystemUI.apk OneOSFoldCutout.apk OneOSGuest.apk OneOSPhoneInjection.apk OneOSPixelStatusBar.apk adservices_payload.img appsearch_payload.img art_payload.img bt_payload.img cellbroadcast_payload.img configinfrastructure_payload.img crashrecovery_payload.img extservices_payload.img framework_patched.jar gmssystem_payload.img guards.txt healthfitness_payload.img i18n_payload.img libcamera_client_patched.so libcameracompatbilityinfo_patched.so mediaprovider_payload.img nfcservices_payload.img npumanager_payload.img ondevicepersonalization_payload.img oneos-apex-requires.txt oneos-telephony.jar oneos-telephony.sha256 oneui_floating_add.txt permission_payload.img rkpd_payload.img runtime_payload.img sdkext_payload.img services_patched.jar telephony-common_patched.jar telephonycore_payload.img webapp_payload.img wifi_payload.img samcam_a_oneui.tar"
++SET_ONEUI="Fold8OneUI95Framework.apk Fold8OneUI95Home.apk Fold8OneUI95Services.jar Fold8OneUI95Settings.apk Fold8OneUI95SystemUI.apk OneOSFoldCutout.apk OneOSGuest.apk OneOSPhoneInjection.apk OneOSPixelStatusBar.apk adservices_payload.img appsearch_payload.img art_payload.img bt_payload.img cellbroadcast_payload.img configinfrastructure_payload.img crashrecovery_payload.img extservices_payload.img framework_patched.jar gmssystem_payload.img guards.txt healthfitness_payload.img i18n_payload.img libcamera_client_patched.so libcameracompatbilityinfo_patched.so mediaprovider_payload.img nfcservices_payload.img npumanager_payload.img ondevicepersonalization_payload.img oneos-apex-requires.txt oneos-telephony.jar oneos-telephony.sha256 oneui_floating_add.txt permission_payload.img rkpd_payload.img runtime_payload.img sdkext_payload.img services_patched.jar telephony-common_patched.jar telephonycore_payload.img webapp_payload.img wifi_payload.img samcam_a_oneui.tar"
+ # OxygenOS 16 (0.4.67): ColorOS's common files and its own payloads; the guest vold as gvld from r2 (0.4.69).
+ SET_OXYGENOS="services_patched.jar oplus-services_patched.jar vold_patched service.incremental_patched.so OneOSGuest.apk ims-ext-common_patched.jar oplus-telephony-common_patched.jar surfaceflinger_patched guards.txt art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img cellbroadcast_payload.img conscrypt_payload.img profiling_payload.img"
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+@@ -919,4 +919,5 @@
+             PackageFile("Fold8OneUI95Services.jar", FileRole.GUEST_FIX),
+             PackageFile("Fold8OneUI95Settings.apk", FileRole.GUEST_FIX),
++            PackageFile("Fold8OneUI95Home.apk", FileRole.GUEST_FIX),
+             PackageFile("services_patched.jar", FileRole.GUARD_JAR),
+             PackageFile("framework_patched.jar", FileRole.GUARD_JAR),
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.guards.txt b/app-android/core/model/src/test/resources/packages/oneui95.guards.txt
+--- a/app-android/core/model/src/test/resources/packages/oneui95.guards.txt
++++ b/app-android/core/model/src/test/resources/packages/oneui95.guards.txt
+@@ -1,2 +1,3 @@
++# Fold8 wallpaper: use stock physical-display routing for Home and lock (patch_fold8_wallpaper_policy.py)
+ # Fold8 PDI 7.4.01.9: report Samsung Keep storage unavailable only to Moneta (patches/oneui95_fold8_pdi_framework.py)
+ # framework overlays built by scripts/make-overlays.sh with the storage, installd, power, sysrq, weaver, biometric, gatekeeper, pdb, apexd, appid15000, nousers, nativeservices, wipesecrets and ksuappid guards, and the secims carve-out (com.sec.imsservice kept in android.uid.system from /system_ext/priv-app/OneOSSecIms only)
+@@ -8,6 +9,7 @@
+ # libcamera_client_patched.so, libcameracompatbilityinfo_patched.so: the native camera client with One UI's codes (patches/pixel_camera_native.py)
+ 6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca  services_patched.jar
+-120d24a8eaf81cb4e4efab8509d99273ee40e1ae7744b123cf135f711f3455a2  framework_patched.jar
++6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5  framework_patched.jar
+ cd02dba1153b2a3a2c0f87da617753d4a8e6c339246cb130e4d91f22506af51e  telephony-common_patched.jar
+ 23d98173e40ce788bc66d4a9678d06869fe5010ade40f001128b30c17ea57e7a  libcamera_client_patched.so
+ 720014ae5f57472b16183a563e1761798df3369a9dabe48a834158a5e2a9ce40  libcameracompatbilityinfo_patched.so
++# Fold8 One UI 9.5 restores Configuration panel propagation (patch_fold8_panel_configuration.py)
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -13,7 +13,7 @@
+ 891790e1579fa78216ed3dbc66e56c38e780b9b8be7d21325fe892f971fbc5da  crashrecovery_payload.img
+ 07651b8f951c09d94c6cd85f38ce304682bae5e1f5bec09dcef619d58a61b304  extservices_payload.img
+-120d24a8eaf81cb4e4efab8509d99273ee40e1ae7744b123cf135f711f3455a2  framework_patched.jar
++6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5  framework_patched.jar
+ 77784c941f64b86292d73fb4eae1897dd43217274976b2df22155a05b05a2b2e  gmssystem_payload.img
+-403432f6f0f7de171ceb62307b45b904ebcdf52e4a8ca3266a4a97e8e22eb814  guards.txt
++0f17f6f1acb6de0cbb0fb57c1387049ecfb4a3f2ca69ca165e5073c2d37f4bb2  guards.txt
+ 9cb0459d57433f6c64a71d9d43e810b98108fefc5db3f1df6c66215b494e2c18  healthfitness_payload.img
+ 65df6ffda49d4f7c1c4225f25d0a641941257fc15555c41e6d14181b2c32609c  i18n_payload.img
+@@ -42,2 +42,3 @@
+ 3ee9ea5edc75351a18de6e8b06e39735618c0c094ae271df4953a6566751712e  Fold8OneUI95Services.jar
+ 27348a492a137bf99a4d90a5937e01c7c06b405299886fe82d147b6cca162f7e  Fold8OneUI95Settings.apk
++342f7ac38f004f3bcb842e3505a95edf48d789c2bf206296df44ee53422c2090  Fold8OneUI95Home.apk
+diff --git a/app-android/packages/oneui95.guards.txt b/app-android/packages/oneui95.guards.txt
+--- a/app-android/packages/oneui95.guards.txt
++++ b/app-android/packages/oneui95.guards.txt
+@@ -1,2 +1,3 @@
++# Fold8 wallpaper: use stock physical-display routing for Home and lock (patch_fold8_wallpaper_policy.py)
+ # Fold8 PDI 7.4.01.9: report Samsung Keep storage unavailable only to Moneta (patches/oneui95_fold8_pdi_framework.py)
+ # framework overlays built by scripts/make-overlays.sh with the storage, installd, power, sysrq, weaver, biometric, gatekeeper, pdb, apexd, appid15000, nousers, nativeservices, wipesecrets and ksuappid guards, and the secims carve-out (com.sec.imsservice kept in android.uid.system from /system_ext/priv-app/OneOSSecIms only)
+@@ -8,6 +9,7 @@
+ # libcamera_client_patched.so, libcameracompatbilityinfo_patched.so: the native camera client with One UI's codes (patches/pixel_camera_native.py)
+ 6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca  services_patched.jar
+-d932b4fdfc01488bcce95a3dccb2bb2aa77c5e40237e05ff619a008babcbd421  framework_patched.jar
++6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5  framework_patched.jar
+ cd02dba1153b2a3a2c0f87da617753d4a8e6c339246cb130e4d91f22506af51e  telephony-common_patched.jar
+ 23d98173e40ce788bc66d4a9678d06869fe5010ade40f001128b30c17ea57e7a  libcamera_client_patched.so
+ 720014ae5f57472b16183a563e1761798df3369a9dabe48a834158a5e2a9ce40  libcameracompatbilityinfo_patched.so
++# Fold8 One UI 9.5 restores Configuration panel propagation (patch_fold8_panel_configuration.py)
+diff --git a/app-android/packages/oneui95.sha256 b/app-android/packages/oneui95.sha256
+--- a/app-android/packages/oneui95.sha256
++++ b/app-android/packages/oneui95.sha256
+@@ -13,7 +13,7 @@
+ 891790e1579fa78216ed3dbc66e56c38e780b9b8be7d21325fe892f971fbc5da  crashrecovery_payload.img
+ 07651b8f951c09d94c6cd85f38ce304682bae5e1f5bec09dcef619d58a61b304  extservices_payload.img
+-120d24a8eaf81cb4e4efab8509d99273ee40e1ae7744b123cf135f711f3455a2  framework_patched.jar
++6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5  framework_patched.jar
+ 77784c941f64b86292d73fb4eae1897dd43217274976b2df22155a05b05a2b2e  gmssystem_payload.img
+-403432f6f0f7de171ceb62307b45b904ebcdf52e4a8ca3266a4a97e8e22eb814  guards.txt
++0f17f6f1acb6de0cbb0fb57c1387049ecfb4a3f2ca69ca165e5073c2d37f4bb2  guards.txt
+ 9cb0459d57433f6c64a71d9d43e810b98108fefc5db3f1df6c66215b494e2c18  healthfitness_payload.img
+ 65df6ffda49d4f7c1c4225f25d0a641941257fc15555c41e6d14181b2c32609c  i18n_payload.img
+@@ -42,2 +42,3 @@
+ 3ee9ea5edc75351a18de6e8b06e39735618c0c094ae271df4953a6566751712e  Fold8OneUI95Services.jar
+ 27348a492a137bf99a4d90a5937e01c7c06b405299886fe82d147b6cca162f7e  Fold8OneUI95Settings.apk
++342f7ac38f004f3bcb842e3505a95edf48d789c2bf206296df44ee53422c2090  Fold8OneUI95Home.apk
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -1836,4 +1836,17 @@
+         else
+             echo "!!! One UI 9.5: Fold8 Settings could not be mounted"
++        fi
++    fi
++    fold8_home="$STAGE/Fold8OneUI95Home.apk"
++    donor_home="$ROOTFS/system/priv-app/TouchWizHome_2017/TouchWizHome_2017.apk"
++    if [ -s "$fold8_home" ] && [ -f "$donor_home" ] && [ ! -L "$donor_home" ] &&
++       [ "$($BB sha256sum "$donor_home" | cut -d' ' -f1)" = "97d54eff5d79c5cca53d7c01a7bee20c99b3c74554df1466b91268ee5d9e58da" ]; then
++        if chmod 644 "$fold8_home" &&
++           $BB chcon u:object_r:system_file:s0 "$fold8_home" &&
++           $BB mount --bind "$fold8_home" "$donor_home"; then
++            $BB mount -o remount,bind,ro "$fold8_home" "$donor_home" 2>/dev/null || true
++            echo "One UI 9.5: mounted One UI Home with Fold8 cover taskbar teardown"
++        else
++            echo "!!! One UI 9.5: Fold8 One UI Home could not be mounted"
+         fi
+     fi
+@@ -6829,5 +6842,5 @@
+         [ -d "$d" ] && [ ! -L "$d" ] || continue
+         if [ "$ONEUI95_FOLD8" = 1 ] && [ "${d##*/}" = SamsungSmartSuggestions ] &&
+-           [ "$(sha256sum "$ROOTFS/system/framework/framework.jar" | cut -d' ' -f1)" = "120d24a8eaf81cb4e4efab8509d99273ee40e1ae7744b123cf135f711f3455a2" ] &&
++           [ "$(sha256sum "$ROOTFS/system/framework/framework.jar" | cut -d' ' -f1)" = "6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5" ] &&
+            [ "$(sha256sum "$d/SamsungSmartSuggestions.apk" 2>/dev/null | cut -d' ' -f1)" = "083ab3ff02b2aa7a92f99e4dd08eae698d71f0d2842e9fb5d065b59a0447f459" ]; then
+             echo "One UI 9.5: kept SamsungSmartSuggestions 7.4.01.9 with its guest-private storage fallback"
+diff --git a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+--- a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
++++ b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+@@ -94,5 +94,5 @@
+         assertEquals(Images.ID_ONEUI95, oneui.imageId)
+         assertEquals("out/overlays_oneui95_r9", oneui.sourceDir)
+-        assertEquals(41, oneui.files.size) // Includes the Fold8 Settings and three display payloads.
++        assertEquals(42, oneui.files.size) // Includes Fold8 Home, Settings and three display payloads.
+         assertEquals(22, oneui.files.count { it.role == FileRole.APEX_PAYLOAD })
+         assertEquals(listOf(PackageSets.TETHERING), oneui.omitted)

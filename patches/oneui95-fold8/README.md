@@ -185,6 +185,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 17. `oneui95-fold8-tabletop-control-v0.5.32.patch`
 18. `oneui95-fold8-flex-panel-v0.5.32.patch`
 19. `oneui95-fold8-cover-and-flex-v0.5.32.patch`
+20. `oneui95-fold8-cover-nav-wallpaper-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -383,3 +384,32 @@ probes on the Fold8. Its Flex cleanup disposed a real temporary input
 receiver on the owning looper. Visual cover Home, navigation ownership,
 the floating hint, and a full open and close of Flex Panel still require
 the user-started r21 guest session.
+
+### Cover navigation and wallpaper
+
+The r21 guest used the dedicated 4×6 cover Home layout. When folded, One UI
+Home reported its taskbar hidden but retained its window beside SystemUI's
+cover navigation bar. `patch_fold8_home_taskbar.py` removes the launcher
+window on the cover configuration callback and guards its style collector
+against reattaching it. The inner display retains the native fixed and
+floating taskbar paths.
+
+Build `Fold8OneUI95Home.apk` from the original `TouchWizHome_2017.apk`
+(One UI Home 18.5.00.113, SHA-256
+`97d54eff5d79c5cca53d7c01a7bee20c99b3c74554df1466b91268ee5d9e58da`).
+Decode it with `apktool d -r`. Copy the decoded `apktool.yml` and only
+`smali_classes3` into a temporary project, naming that directory `smali`.
+Pass it to `patch_fold8_home_taskbar.py`, rebuild the project and extract
+its `classes.dex`. Use `scripts/apk-replace-dex.py` to place it in the
+original APK as `classes3.dex`. The Fold8 guest binds the staged APK over
+the exact donor during preparation.
+
+The stock Fold8 uses physical display IDs to pick the Home and lock
+wallpaper tokens. The 9.5 guest wrote and drew a replacement cover
+wallpaper, but WindowManager selected the inner token on the cover.
+Apply `patch_fold8_wallpaper_policy.py` to the r21 `framework_patched.jar`
+using `scripts/patch-built-jar.sh`. This enables that existing WindowManager
+policy for the Fold8 and keeps Samsung's `persist.wm.fold.wallpaper_policy`
+override. It does not need to migrate wallpaper files or change the stock
+host's properties. Package the new framework and Home payload and update the
+existing One UI 9.5 stage before retesting both displays.
