@@ -28,7 +28,7 @@ index 5672fb0..0ce5503 100644
      <application android:name=".ui.OneOsApplication">
          <service
 diff --git a/app-android/app/src/full/assets/root/oneos_root.sh b/app-android/app/src/full/assets/root/oneos_root.sh
-index c7d3db7..89b8072 100644
+index c7d3db7..6408dda 100644
 --- a/app-android/app/src/full/assets/root/oneos_root.sh
 +++ b/app-android/app/src/full/assets/root/oneos_root.sh
 @@ -175,7 +175,7 @@ SET_HYPERHK="OneOSCameraProcessingStub.apk OneOSFoldCutout.apk OneOSGuest.apk On
@@ -63,7 +63,7 @@ index c7d3db7..89b8072 100644
      [ -n "$M_SET" ] && [ "$(pair_set "$M_PROFILE" "$M_IMAGE")" = "$M_SET" ] ||
          refuse "the stage holds $M_IMAGE with ${M_SET:-no file set}, not its file set for $M_PROFILE: prepare again"
      [ "$gms" = 0 ] || in_list "$M_IMAGE" "$IMAGES_GMS" || refuse "$M_IMAGE has no Google services a session may hide"
-+    [ "$mediachip" = 1 ] || [ "$M_PROFILE:$M_IMAGE" = f8:oneui95-s948b ] ||
++    [ "$mediachip" = 1 ] || [ "$M_IMAGE" = oneui95-s948b ] ||
 +        refuse "the media chip option is unavailable for this system"
      set -- $pinfo
      form=$4
@@ -404,16 +404,17 @@ index cd60fd5..5467833 100644
      /** The boot screen's status while a Bring started on the Apps screen is waited for. */
 diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/session/GuestFeatures.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/session/GuestFeatures.kt
 new file mode 100644
-index 0000000..7dbfe00
+index 0000000..d936041
 --- /dev/null
 +++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/session/GuestFeatures.kt
-@@ -0,0 +1,34 @@
+@@ -0,0 +1,35 @@
 +package com.fahadali.oneos.session
 +
 +import android.content.Context
 +import androidx.annotation.StringRes
 +import com.fahadali.oneos.R
 +import com.fahadali.oneos.core.model.Images
++import com.fahadali.oneos.core.model.PhoneProfile
 +
 +/** Feature choices belong to a guest image and are resolved again for each launch. */
 +object GuestFeatures {
@@ -423,8 +424,8 @@ index 0000000..7dbfe00
 +
 +    data class LaunchOptions(val mediaChip: Boolean)
 +
-+    fun forSystem(profileId: String?, imageId: String): List<Flag> =
-+        if (profileId == "f8" && imageId == Images.ID_ONEUI95) listOf(Flag.MEDIA_CHIP) else emptyList()
++    fun forSystem(profile: PhoneProfile?, imageId: String): List<Flag> =
++        if (imageId == Images.ID_ONEUI95 && profile?.choice(imageId) != null) listOf(Flag.MEDIA_CHIP) else emptyList()
 +
 +    fun enabled(ctx: Context, imageId: String, flag: Flag): Boolean =
 +        SessionPrefs.p(ctx).getBoolean(prefKey(imageId, flag), flag.defaultEnabled)
@@ -433,24 +434,24 @@ index 0000000..7dbfe00
 +        SessionPrefs.p(ctx).edit().putBoolean(prefKey(imageId, flag), enabled).apply()
 +    }
 +
-+    fun optionsForLaunch(ctx: Context, profileId: String, imageId: String): LaunchOptions {
++    fun optionsForLaunch(ctx: Context, profile: PhoneProfile, imageId: String): LaunchOptions {
 +        val mediaChip = Flag.MEDIA_CHIP
 +        return LaunchOptions(
-+            mediaChip = mediaChip !in forSystem(profileId, imageId) || enabled(ctx, imageId, mediaChip),
++            mediaChip = mediaChip !in forSystem(profile, imageId) || enabled(ctx, imageId, mediaChip),
 +        )
 +    }
 +
 +    private fun prefKey(imageId: String, flag: Flag) = "guest_feature|$imageId|${flag.key}"
 +}
 diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/session/LaunchJob.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/session/LaunchJob.kt
-index eb28ff5..27b9df3 100644
+index eb28ff5..4a2b706 100644
 --- a/app-android/app/src/full/kotlin/com/fahadali/oneos/session/LaunchJob.kt
 +++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/session/LaunchJob.kt
 @@ -254,6 +254,7 @@ object LaunchJob : BackgroundJob<LaunchJob.State>(State(), "oneos-launch") {
                  if (SessionPrefs.heatCap(app)) "1" else "0", if (secIms) "1" else "0", if (edmStub) "1" else "0",
                  if (SessionPrefs.verboseBoot(app)) "1" else "0", if (SessionPrefs.fullLogs(app)) "1" else "0",
                  if (SessionPrefs.shareFiles(app)) "1" else "0",
-+                if (GuestFeatures.optionsForLaunch(app, profile.id, image.id).mediaChip) "1" else "0",
++                if (GuestFeatures.optionsForLaunch(app, profile, image.id).mediaChip) "1" else "0",
              ),
              silenceMs = 5 * 60_000L,
          )
@@ -605,7 +606,7 @@ index 1ca93ee..d8294a5 100644
      private fun rowSummary(c: BringAppsJob.Candidate, copy: BringApps.Copy?, ticked: Boolean, system: String): String = when {
          copy == null -> if (c.version.isBlank()) c.pkg else getString(R.string.bring_app_summary, c.version, c.pkg)
 diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
-index 5c66d1a..fe7332c 100644
+index 5c66d1a..824c0d5 100644
 --- a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
 +++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
 @@ -15,6 +15,7 @@ import androidx.appcompat.app.AlertDialog
@@ -621,7 +622,7 @@ index 5c66d1a..fe7332c 100644
              }
          }
 +        val patchProfile = currentFacts?.let { com.fahadali.oneos.core.model.Profiles.resolve(it).profile }
-+        val features = GuestFeatures.forSystem(patchProfile?.id, image.id)
++        val features = GuestFeatures.forSystem(patchProfile, image.id)
 +        if (features.isNotEmpty()) {
 +            PrebootCards.row(PrebootCards.section(column), getString(R.string.system_features), chevron = true) {
 +                showGuestFeatureFlags(this, image.id, features)
@@ -664,7 +665,7 @@ index 0000000..847c184
 +        .show()
 +}
 diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/SystemsActivity.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/SystemsActivity.kt
-index 1e03538..7e3edf7 100644
+index 1e03538..bf0aebc 100644
 --- a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/SystemsActivity.kt
 +++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/SystemsActivity.kt
 @@ -35,6 +35,7 @@ import com.fahadali.oneos.core.model.Plain
@@ -679,7 +680,7 @@ index 1e03538..7e3edf7 100644
              return v
          }
          val primary = v.findViewById<Button>(R.id.systems_primary)
-+        val features = GuestFeatures.forSystem(p?.id, image.id)
++        val features = GuestFeatures.forSystem(p, image.id)
 +        if (features.isNotEmpty()) {
 +            v.findViewById<Button>(R.id.systems_features).apply {
 +                visibility = View.VISIBLE
@@ -1087,7 +1088,7 @@ index bc15070..e9a7f61 100644
              case "${'$'}2" in
                android) echo "package:/system/framework/framework-res.apk" ;;
 diff --git a/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/StageScriptTest.kt b/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/StageScriptTest.kt
-index 429c59e..0105c90 100644
+index 429c59e..31451e0 100644
 --- a/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/StageScriptTest.kt
 +++ b/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/StageScriptTest.kt
 @@ -1139,6 +1139,22 @@ class StageScriptTest {
@@ -1113,12 +1114,12 @@ index 429c59e..0105c90 100644
      /**
       * 0.4.11: the Galaxy S26 (SM-S942 and the Japanese SC-51G, m1q, SM8850)
       * takes the S Ultra's two sets; the S24 Ultra (SM-S928, e3q, SM8650), S23
-@@ -1734,6 +1750,24 @@ class StageScriptTest {
+@@ -1734,6 +1750,28 @@ class StageScriptTest {
          assertTrue(RootScript.problems(RootScript.Verb.LAUNCH, listOf("session", "4", "0123456789abcdef", "0", "1", "0", "0", "0", "1", "1")).isEmpty())
      }
  
 +    @Test
-+    fun mediaChipChoiceIsScopedToOneUi95OnFold8() = eachShell { fr ->
++    fun mediaChipChoiceIsScopedToOneUi95() = eachShell { fr ->
 +        val s = Stager(fr)
 +        s.prepare()
 +        val launch = listOf("session", s.code, "0123456789abcdef", "0", "1", "0", "0", "0", "1", "0")
@@ -1126,6 +1127,10 @@ index 429c59e..0105c90 100644
 +        assertTrue(RootScript.problems(verb, launch + "2").isNotEmpty())
 +        refused(fr.run(verb, *(launch + "0").toTypedArray()), "the media chip option is unavailable")
 +        refused(fr.run(verb, *(launch + "1").toTypedArray()), "test root: every launch check passed")
++
++        Stager(fr, Profiles.S_ULTRA_8850, Images.ID_ONEUI95).prepare("aside")
++        refused(fr.run(verb, *(launch + "0").toTypedArray()), "test root: every launch check passed")
++        refused(fr.run(verb, *launch.toTypedArray()), "test root: every launch check passed")
 +
 +        fr.props["ro.product.model"] = "SM-F971B"
 +        fr.props["ro.product.device"] = "h8q"
@@ -1138,7 +1143,7 @@ index 429c59e..0105c90 100644
      @Test
      fun verboseBootChoiceIsWrittenOnlyAfterLaunchChecks() = eachShell { fr ->
          val s = Stager(fr)
-@@ -2218,7 +2252,48 @@ class StageScriptTest {
+@@ -2218,7 +2256,48 @@ class StageScriptTest {
          org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { fr.run(RootScript.Verb.BRING_CLEAR, "x") }
      }
  
@@ -1645,22 +1650,25 @@ index 0000000..17c54d0
 +        octal = "".join(f"\\{byte:03o}" for byte in replacement)
 +        print(f"printf '{octal}' | $BB dd of=\"$2\" bs=1 seek={offset} conv=notrunc 2>/dev/null")
 diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
-index 778bd2c..bfd9df9 100755
+index 778bd2c..d676985 100755
 --- a/switcher/assets/guest_prepare.sh
 +++ b/switcher/assets/guest_prepare.sh
-@@ -452,6 +452,11 @@ GUEST_SYSTEM_EXT="$ROOTFS/system_ext"
+@@ -452,6 +452,14 @@ GUEST_SYSTEM_EXT="$ROOTFS/system_ext"
  # UI's /product (see host_part_mounts at the top).
  GUEST_PRODUCT="$ROOTFS/system/product"
  [ -L "$GUEST_PRODUCT" ] && GUEST_PRODUCT="$ROOTFS/product"
++ONEUI95_IMAGE=0
++if grep -qx 'ro.build.PDA=S948BXXU6ZZKN' "$ROOTFS/system/build.prop" 2>/dev/null; then
++    ONEUI95_IMAGE=1
++fi
 +ONEUI95_FOLD8=0
-+if [ "${ONEOS_PROFILE:-}" = f8 ] && [ "${ONEOS_GUEST_FORM:-fold}" = fold ] &&
-+   grep -qx 'ro.build.PDA=S948BXXU6ZZKN' "$ROOTFS/system/build.prop" 2>/dev/null; then
++if [ "$ONEUI95_IMAGE" = 1 ] && [ "${ONEOS_PROFILE:-}" = f8 ] && [ "${ONEOS_GUEST_FORM:-fold}" = fold ]; then
 +    ONEUI95_FOLD8=1
 +fi
  for d in "$GUEST_SYSTEM_EXT" "$GUEST_PRODUCT"; do
      if [ -L "$d" ] || [ ! -d "$d" ]; then
          echo "ERROR: ${d#$ROOTFS/} in the guest image is a link or missing (system_ext and product: one real folder each); not starting the guest"
-@@ -1654,6 +1659,11 @@ DDCEOF
+@@ -1654,6 +1662,11 @@ DDCEOF
      }'
      cat <<'DDCEOF'
      </screenBrightnessMap>
@@ -1672,7 +1680,7 @@ index 778bd2c..bfd9df9 100755
      <proxSensor>
          <type>com.samsung.sensor.physical_proximity</type>
      </proxSensor>
-@@ -1725,8 +1735,16 @@ else
+@@ -1725,8 +1738,16 @@ else
          m=$(grep 'DisplayDeviceInfo{' "$STAGE/display_modes_host.log" 2>/dev/null | grep -E "port=$port[},]" |
              sed -n 's/.*brightnessMaximum \([0-9.]*\).*/\1/p' | head -n 1)
          DDC_MAX="$DDC_MAX $port:${m:-?}"
@@ -1691,20 +1699,40 @@ index 778bd2c..bfd9df9 100755
          fi > "$DOV/up/displayconfig/display_port_$port.xml"
      done
      chmod 755 "$DOV/up" "$DOV/up/displayconfig" && chmod 644 "$DOV/up/displayconfig/"*.xml
-@@ -1737,6 +1755,126 @@ else
+@@ -1737,6 +1758,154 @@ else
          echo "Display config: read-only overlay on product/etc refused, left out"
      fi
  fi
 +# Replace one media-chip model return with the existing null result.
 +# Offsets and CRCs are generated by scripts/oneui95-media-chip-patch.py.
-+oneui95_hide_media_chip() { # <pinned SystemUI.apk> <temporary APK>
-+    [ "$($BB sha256sum "$1" | cut -d' ' -f1)" = "e553e3a094bcbab84279ca6d17741204ebfe9853bee60e52016c96cecfdc9b33" ] &&
-+        cp "$1" "$2" &&
-+        printf '\337\063\047\307' | $BB dd of="$2" bs=1 seek=88797198 conv=notrunc 2>/dev/null &&
-+        printf '\206\214\147\325\252\205\072\070\123\070\256\322\150\161\174\340\137\361\302\337\125\343\372\070' | $BB dd of="$2" bs=1 seek=113723616 conv=notrunc 2>/dev/null &&
-+        printf '\002' | $BB dd of="$2" bs=1 seek=118344105 conv=notrunc 2>/dev/null &&
-+        printf '\337\063\047\307' | $BB dd of="$2" bs=1 seek=142476094 conv=notrunc 2>/dev/null &&
-+        [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "4953db136ec59ad16a8cc0b05aefa610af85634ff02297344e3f786d3acac377" ]
++oneui95_hide_media_chip() ( # <pinned SystemUI.apk> <temporary APK>
++    case "$($BB sha256sum "$1" | cut -d' ' -f1)" in
++        fd1e6fb5daa5785d172d05c5c9ce8904e7fa2858661abd4664a0bddaef98b928)
++            cp "$1" "$2" &&
++            printf '\321\301\026\173' | $BB dd of="$2" bs=1 seek=14664 conv=notrunc 2>/dev/null &&
++            printf '\007\333\214\132\320\055\251\267\360\367\000\105\006\206\011\354\272\044\361\321\016\055\232\234' | $BB dd of="$2" bs=1 seek=24938740 conv=notrunc 2>/dev/null &&
++            printf '\002' | $BB dd of="$2" bs=1 seek=29559229 conv=notrunc 2>/dev/null &&
++            printf '\321\301\026\173' | $BB dd of="$2" bs=1 seek=88814398 conv=notrunc 2>/dev/null || return 1
++            expected=dc42d20eb10acc7bfc9e58254659b72f2f87c4c946a69cad4f3881f2ea205360
++            ;;
++        e553e3a094bcbab84279ca6d17741204ebfe9853bee60e52016c96cecfdc9b33)
++            cp "$1" "$2" &&
++            printf '\337\063\047\307' | $BB dd of="$2" bs=1 seek=88797198 conv=notrunc 2>/dev/null &&
++            printf '\206\214\147\325\252\205\072\070\123\070\256\322\150\161\174\340\137\361\302\337\125\343\372\070' | $BB dd of="$2" bs=1 seek=113723616 conv=notrunc 2>/dev/null &&
++            printf '\002' | $BB dd of="$2" bs=1 seek=118344105 conv=notrunc 2>/dev/null &&
++            printf '\337\063\047\307' | $BB dd of="$2" bs=1 seek=142476094 conv=notrunc 2>/dev/null || return 1
++            expected=4953db136ec59ad16a8cc0b05aefa610af85634ff02297344e3f786d3acac377
++            ;;
++        *) return 1 ;;
++    esac
++    [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "$expected" ]
++)
++
++oneui95_bind_systemui() {
++    chmod 644 "$1" &&
++        $BB chcon u:object_r:system_file:s0 "$1" &&
++        $BB mount --bind "$1" "$2" || return 1
++    $BB mount -o remount,bind,ro "$1" "$2" 2>/dev/null || true
 +}
 +
 +# Samsung's renderer matches the canvases of the main and sub QMGs to its
@@ -1790,35 +1818,43 @@ index 778bd2c..bfd9df9 100755
 +            echo "!!! One UI 9.5: Fold8 One UI Home could not be mounted"
 +        fi
 +    fi
-+    fold8_systemui="$STAGE/Fold8OneUI95SystemUI.apk"
++fi
++
++# Use the Fold8 replacement where available, and otherwise patch the donor.
++if [ "$ONEUI95_IMAGE" = 1 ]; then
 +    oneui_systemui="$GUEST_SYSTEM_EXT/priv-app/SystemUI/SystemUI.apk"
-+    if [ -s "$fold8_systemui" ] && [ -f "$oneui_systemui" ] &&
-+       [ "$($BB sha256sum "$oneui_systemui" | cut -d' ' -f1)" = "fd1e6fb5daa5785d172d05c5c9ce8904e7fa2858661abd4664a0bddaef98b928" ]; then
-+        media_apk=
++    systemui_source="$oneui_systemui"
++    if [ -f "$oneui_systemui" ] && [ ! -L "$oneui_systemui" ]; then
++        fold8_systemui="$STAGE/Fold8OneUI95SystemUI.apk"
++        if [ "$ONEUI95_FOLD8" = 1 ] && [ -s "$fold8_systemui" ] &&
++           [ "$($BB sha256sum "$oneui_systemui" | cut -d' ' -f1)" = "fd1e6fb5daa5785d172d05c5c9ce8904e7fa2858661abd4664a0bddaef98b928" ]; then
++            systemui_source="$fold8_systemui"
++        fi
++        media_bound=0
 +        if [ "${ONEOS_ONEUI95_MEDIA_CHIP:-1}" = 0 ]; then
 +            media_apk=$($BB mktemp "$STAGE/.oneui95-media.XXXXXX")
-+            if [ -n "$media_apk" ] && oneui95_hide_media_chip "$fold8_systemui" "$media_apk"; then
-+                fold8_systemui="$media_apk"
++            if [ -n "$media_apk" ] && oneui95_hide_media_chip "$systemui_source" "$media_apk" &&
++               oneui95_bind_systemui "$media_apk" "$oneui_systemui"; then
++                media_bound=1
++                echo "One UI 9.5: Dynamic Island player off"
 +            else
 +                echo "!!! One UI 9.5: could not turn off the Dynamic Island player"
 +            fi
++            [ -z "$media_apk" ] || rm -f "$media_apk"
 +        fi
-+        if chmod 644 "$fold8_systemui" &&
-+           $BB chcon u:object_r:system_file:s0 "$fold8_systemui" &&
-+           $BB mount --bind "$fold8_systemui" "$oneui_systemui"; then
-+            $BB mount -o remount,bind,ro "$fold8_systemui" "$oneui_systemui" 2>/dev/null || true
-+            [ "$fold8_systemui" != "$media_apk" ] || echo "One UI 9.5: Dynamic Island player off"
-+            echo "One UI 9.5: restored stock Fold8 landscape navigation and Quick Settings modes"
-+        else
-+            echo "!!! One UI 9.5: Fold8 SystemUI could not be mounted"
++        if [ "$systemui_source" != "$oneui_systemui" ]; then
++            if [ "$media_bound" = 1 ] || oneui95_bind_systemui "$systemui_source" "$oneui_systemui"; then
++                echo "One UI 9.5: restored stock Fold8 landscape navigation and Quick Settings modes"
++            else
++                echo "!!! One UI 9.5: Fold8 SystemUI could not be mounted"
++            fi
 +        fi
 +    fi
-+    [ -z "${media_apk:-}" ] || rm -f "$media_apk"
 +fi
  # The guest's /mnt is a tmpfs of its own (0.4.63), with One UI's folders bound in
  # one by one, except the storage views guest_start.sh drops and rebuilds anyway
  # (user, pass_through, installer, androidwritable, runtime). Until 0.4.62 it was
-@@ -1801,13 +1939,19 @@ elif $BB mount --rbind /mnt "$ROOTFS/mnt"; then
+@@ -1801,13 +1970,19 @@ elif $BB mount --rbind /mnt "$ROOTFS/mnt"; then
      $BB mount --make-rslave "$ROOTFS/mnt" 2>/dev/null || true
      echo "Guest /mnt: One UI's, a recursive bind (ONEOS_GUEST_OWN_MNT=${ONEOS_GUEST_OWN_MNT:-1})"
  fi
@@ -1842,7 +1878,7 @@ index 778bd2c..bfd9df9 100755
      echo "ERROR: the guarded services.jar is not in place; not starting the guest"
      exit 3
  fi
-@@ -2783,7 +2927,7 @@ STAGE="$STAGE" BB="$BB" /system/bin/sh "$STAGE/fold8_pixel.sh" prepare || exit 3
+@@ -2783,7 +2958,7 @@ STAGE="$STAGE" BB="$BB" /system/bin/sh "$STAGE/fold8_pixel.sh" prepare || exit 3
  #   turns on OPPO's full compact window mode (compat mode, starting windows,
  #   animations); the .lite variant was already on.
  # - radio.support_5g (ONEOS_GUEST_5G=0 leaves it out): without it ColorOS
@@ -1851,7 +1887,7 @@ index 778bd2c..bfd9df9 100755
  #   while One UI showed 5G).
  # - radio.support_dual_nr, only with support_5g (ONEOS_GUEST_DUAL_5G=0 leaves
  #   it out): the Find N6 is a dual-5G phone (its my_product feature file
-@@ -3114,7 +3258,7 @@ fi
+@@ -3114,7 +3289,7 @@ fi
  # Infinity-X's AOSP SystemUI takes it too (0.4.33); never ColorOS's (it has
  # oplus-telephony-common.jar, and make-overlays.sh builds the RRO for its sets
  # only from SystemUIGoogle or an AOSP SystemUI).
@@ -1860,7 +1896,7 @@ index 778bd2c..bfd9df9 100755
       { [ -f "$GUEST_SYSTEM_EXT/priv-app/SystemUI/SystemUI.apk" ] && [ ! -f "$GUEST_SYSTEM_EXT/framework/oplus-telephony-common.jar" ]; }; }; then
      if [ "${ONEOS_GUEST_STATUSBAR_PADDING:-1}" = 1 ]; then
          mkdir -p "$STAGE/oem/overlay" &&
-@@ -3287,7 +3431,12 @@ if [ "${ONEOS_GUEST_APP:-1}" = 1 ]; then
+@@ -3287,7 +3462,12 @@ if [ "${ONEOS_GUEST_APP:-1}" = 1 ]; then
      cp "$STAGE/boot_status.sh" "$STAGE/data/oneos_bootui/boot_status.sh"
      chmod 644 "$STAGE/data/oneos_bootui/boot_status.sh"
      GUEST_APP_APK="$STAGE/OneOSGuest.apk"
@@ -1874,7 +1910,7 @@ index 778bd2c..bfd9df9 100755
      # One integrated OneOS app in every guest, including when guest root is off.
      rm -f "$STAGE/oem/app/OneOSGuestRoot/GuestRoot.apk"
      if [ -f "$GUEST_APP_APK" ]; then
-@@ -4614,7 +4763,9 @@ fi
+@@ -4614,7 +4794,9 @@ fi
  # continue_using_apps_when_folded=2). vendor (default for now) = run 30.
  DSDIR="$STAGE/data/system/devicestate"
  DS_DEFAULT=vendor
@@ -1885,7 +1921,7 @@ index 778bd2c..bfd9df9 100755
  # 0.4.38: the Z Fold8 runs the Find N6 global image with n6-f8u too (n6-f8's UI
  # patches were the CN build's); its hinge stays.
  # The Z Fold8 Ultra (n6-f8u) has the same lid states (0 CLOSE, 3 OPEN) and the
-@@ -4623,7 +4774,17 @@ if grep -q '^  "image": "coloros17-findn6",$' "$STAGE/.oneos_stage" &&
+@@ -4623,7 +4805,17 @@ if grep -q '^  "image": "coloros17-findn6",$' "$STAGE/.oneos_stage" &&
          { { [ "${ONEOS_PROFILE:-}" = f8 ] && grep -q -e '^  "set": "n6-f8",$' -e '^  "set": "n6-f8u",$' -e '^  "set": "n6-global-f8",$' "$STAGE/.oneos_stage"; } ||
            { [ "${ONEOS_PROFILE:-}" = f8u ] && grep -q '^  "set": "n6-f8u",$' "$STAGE/.oneos_stage"; }; }; then
      DS_DEFAULT=fold8-hinge
@@ -1904,7 +1940,7 @@ index 778bd2c..bfd9df9 100755
  fi
  # vivo OriginOS on a Fold (ro.vivo.device.type=foldable, guest_props.sh): vivo's
  # framework, SystemUI and launcher count 1 as OPEN and 0 as CLOSE (Samsung's 3
-@@ -4633,11 +4794,11 @@ fi
+@@ -4633,11 +4825,11 @@ fi
  if [ -f "$ROOTFS/system/framework/vivo-services.jar" ] && [ "$FORM" = fold ] && [ "${ONEOS_GUEST_VIVO_FOLD:-1}" = 1 ]; then
      DS_DEFAULT=vivo
  fi
@@ -1919,7 +1955,7 @@ index 778bd2c..bfd9df9 100755
  <device-state-config>
      <device-state>
          <identifier>0</identifier><name>CLOSE</name>
-@@ -4666,7 +4827,7 @@ if [ "$FOLD8_COLOR_HINGE" = 1 ] && [ "${ONEOS_GUEST_DEVICE_STATES:-$DS_DEFAULT}"
+@@ -4666,7 +4858,7 @@ if [ "$FOLD8_COLOR_HINGE" = 1 ] && [ "${ONEOS_GUEST_DEVICE_STATES:-$DS_DEFAULT}"
              <sensor>
                  <type>com.samsung.sensor.folding_angle</type>
                  <name>Folding Angle  Non-wakeup</name>
@@ -1928,7 +1964,7 @@ index 778bd2c..bfd9df9 100755
              </sensor>
          </conditions>
      </device-state>
-@@ -4682,7 +4843,7 @@ if [ "$FOLD8_COLOR_HINGE" = 1 ] && [ "${ONEOS_GUEST_DEVICE_STATES:-$DS_DEFAULT}"
+@@ -4682,7 +4874,7 @@ if [ "$FOLD8_COLOR_HINGE" = 1 ] && [ "${ONEOS_GUEST_DEVICE_STATES:-$DS_DEFAULT}"
  F8DSX
      chown 1000:1000 "$DSDIR" "$DSDIR/device_state_configuration.xml"
      chmod 644 "$DSDIR/device_state_configuration.xml"
@@ -1937,7 +1973,7 @@ index 778bd2c..bfd9df9 100755
  elif [ "${ONEOS_GUEST_DEVICE_STATES:-$DS_DEFAULT}" = oneos ]; then
      mkdir -p "$DSDIR"
      cat > "$DSDIR/device_state_configuration.xml" <<'DSX'
-@@ -4975,7 +5136,7 @@ GUEST_OPLUS=0
+@@ -4975,7 +5167,7 @@ GUEST_OPLUS=0
  # Preferred (attach) APN per SIM, from One UI: oneos_switch.sh recorded
  # host_pref_apn ("slot mcc mnc apn") while One UI's telephony provider ran.
  # Runs 41 and 42: with no preferred APN for SIM 2 (a fresh stage) Pixel's
@@ -1946,7 +1982,7 @@ index 778bd2c..bfd9df9 100755
  # SIM 2 left LTE a second later and stayed on 3G for the session. One UI and
  # ColorOS attach with web2. Picking it in Settings once the session runs is too
  # late (the modem has given up on LTE by then), and that pick stays in the stage.
-@@ -4985,7 +5146,7 @@ GUEST_OPLUS=0
+@@ -4985,7 +5177,7 @@ GUEST_OPLUS=0
  # removed; and apn_id<sub> / explicit_set_called<sub> are dropped from
  # preferred-apn. With no saved id, getPreferredApnId looks the APN up by the
  # fields present (getString(field + sub)) and keeps it when exactly one APN
@@ -1955,7 +1991,7 @@ index 778bd2c..bfd9df9 100755
  # choice, as before. Guest sub = slot + 1 (runs 41 and 42; the UI activator logs
  # the guest's mapping). Android's SharedPreferences text XML; a .bak left by an
  # interrupted write is what Android would load, so it is taken first. Never
-@@ -5091,26 +5252,26 @@ fi
+@@ -5091,26 +5283,26 @@ fi
  # Run 43, the first run with the import: One UI's LE keys are not in the layout
  # the Pixel stack reads (LE_KEY_PID = 16-byte IRK, address type 00 or 01, the
  # identity address). Every device's PID decoded to type 149, 181 or 13 and a
@@ -1987,7 +2023,7 @@ index 778bd2c..bfd9df9 100755
  # auto-accepted it, which replaced their key for this phone and broke One UI's
  # pairing. Never pair One UI's devices in the guest (docs/pixel-guest.md).
  # Run 44: One UI's link keys are not AOSP's. diag_bt/shape_oneui.txt has
-@@ -5281,6 +5442,100 @@ echo "=== 5d. $(date +%T) Bridging host /data app and storage trees into the sta
+@@ -5281,6 +5473,100 @@ echo "=== 5d. $(date +%T) Bridging host /data app and storage trees into the sta
  # equivalents over those host paths for the duration of the session, so those
  # daemons write into the guest's data. One UI is not running meanwhile and
  # return_to_oneui.sh removes the binds again.
@@ -2088,7 +2124,7 @@ index 778bd2c..bfd9df9 100755
  # OneOS: /data/data and /data/media as well. For user 0, installd's CE app data
  # path is /data/data, not /data/user/0, and in run 25 the guest's
  # destroyUserData(0) went through the host installd into One UI's real
-@@ -5716,7 +5971,7 @@ cat > "$STAGE/data/local/tmp/net_fix.sh" <<'NETFIX'
+@@ -5716,7 +6002,7 @@ cat > "$STAGE/data/local/tmp/net_fix.sh" <<'NETFIX'
  # tables; 0.4.58 limits the rule to what the phone itself sends, iif lo, so the
  # hotspot's forwarded traffic keeps netd's tethering rules.)
  # Usable = an IPv4 address AND a carrier. After One UI stops, wlan0 keeps One
@@ -2097,7 +2133,7 @@ index 778bd2c..bfd9df9 100755
  # wlan0 all session); picking it sent all traffic to a dead link.
  usable() {
      [ "$(cat "/sys/class/net/$1/carrier" 2>/dev/null)" = 1 ] &&
-@@ -6578,13 +6833,19 @@ fi
+@@ -6578,13 +6864,19 @@ fi
  # - SamsungDeviceHealthManagerService (com.sec.android.sdhms): the image's thermal (SIOP) tables
  #   are the S26 Ultra's; on another phone SiopExpression read a null array, 95 crashes. The
  #   session's heat cap (oneos_switch.sh) does the thermal limiting.
@@ -2119,7 +2155,7 @@ index 778bd2c..bfd9df9 100755
          $BB mount -t tmpfs -o ro,size=4k,mode=755 tmpfs "$d" && \
              echo "Hid guest ${d#"$ROOTFS"/} (One UI image: cannot work in a guest; ONEOS_GUEST_ONEUI_KEEP_APPS=1 keeps it)"
      done
-@@ -6789,6 +7050,120 @@ if grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null &&
+@@ -6789,6 +7081,120 @@ if grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null &&
          fi
      fi
  fi

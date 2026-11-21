@@ -303,13 +303,12 @@ setting.
 
 ### Feature flags
 
-**Feature flags** appears on the Fold8 One UI 9.5 card and near the top
-of its system detail page. **Dynamic Island player** is on by default. The choice is saved per
-system and takes effect when you next start the guest. When the player is
-off, the boot script derives the media-chip variant from the pinned Fold8
-SystemUI APK and verifies the result before mounting it. The SystemUI
-payload itself and the Fold8 Quick Settings and navigation edits stay the
-same in the staged set.
+The 0.5.33 r24 patch shows **Feature flags** on the One UI 9.5 card and
+details page for every device that supports this guest. **Dynamic Island
+player** is on by default. The choice is saved per system and takes effect
+on the next guest boot. When the player is off, the boot script derives and
+verifies the temporary APK from the pinned stock or Fold8 SystemUI. The Fold8
+variant keeps its Quick Settings and navigation patches.
 
 ### Stock firmware audit
 
