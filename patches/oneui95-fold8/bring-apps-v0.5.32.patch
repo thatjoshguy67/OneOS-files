@@ -1,0 +1,1141 @@
+diff --git a/app-android/app/src/full/AndroidManifest.xml b/app-android/app/src/full/AndroidManifest.xml
+index 5672fb0..0ce5503 100644
+--- a/app-android/app/src/full/AndroidManifest.xml
++++ b/app-android/app/src/full/AndroidManifest.xml
+@@ -1,5 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
++<manifest xmlns:android="http://schemas.android.com/apk/res/android"
++    xmlns:tools="http://schemas.android.com/tools">
+ 
+     <!-- The full edition (com.fahadali.oneos): the switching screens, merged
+          into src/main's manifest. The image is picked in the system file
+@@ -17,14 +18,8 @@
+     <!-- Once OneOS installed itself this way, Android lets its later updates skip the prompt. -->
+     <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
+ 
+-    <!-- Bring apps (0.4.75): without this Android hides other apps from us and the
+-         list showed two of 120 (11-10). Every app with a launcher icon, nothing more. -->
+-    <queries>
+-        <intent>
+-            <action android:name="android.intent.action.MAIN" />
+-            <category android:name="android.intent.category.LAUNCHER" />
+-        </intent>
+-    </queries>
++    <!-- Bring Apps includes system packages with no launcher icon. -->
++    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />
+ 
+     <application android:name=".ui.OneOsApplication">
+         <service
+diff --git a/app-android/app/src/full/assets/root/oneos_root.sh b/app-android/app/src/full/assets/root/oneos_root.sh
+index 248a2d9..56dace9 100644
+--- a/app-android/app/src/full/assets/root/oneos_root.sh
++++ b/app-android/app/src/full/assets/root/oneos_root.sh
+@@ -2325,6 +2325,7 @@ bring_dirs() {
+ # so the folder is only moved aside, inside the bring folder (root's alone), and
+ # the next verb that runs with the guest down deletes it.
+ BRING_LIVE=0
++BRING_SYSTEM=0
+ bring_clearout() { # <a folder in the bring folder>
+     if [ "$BRING_LIVE" = 1 ]; then bring_aside "$1"; else bring_drop "$1"; fi
+ }
+@@ -2359,25 +2360,93 @@ apk_of() { # <package>
+     fi
+ }
+ 
++# Only the host Package Manager can supply paths. For live requests it cannot be
++# queried after handoff, so bring-catalog saves its answers outside guest data.
++bring_system_records() {
++    pm list packages -s -f -U --user 0 "$@" </dev/null | awk '
++        /^package:\/[^ ]+ uid:[0-9]+$/ {
++            uid = $2; sub(/^uid:/, "", uid)
++            pkg = $1; sub(/^.*=/, "", pkg)
++            path = $1; sub(/^package:/, "", path); sub(/=[^=]+$/, "", path)
++            print pkg, uid, path
++        }'
++}
++
++bring_system_path() {
++    case "$1" in *[!A-Za-z0-9._~+=/-]*|*//*|*/.*|*/../*) return 1 ;; esac
++    case "$1" in
++        /data/app/*/*/*.apk) return 0 ;;
++    esac
++    _app_path=$1
++    case "$_app_path" in /system/system_ext/*|/system/product/*|/system/vendor/*|/system/odm/*) _app_path=${_app_path#/system} ;; esac
++    case "$_app_path" in
++        /system/*|/system_ext/*|/product/*|/vendor/*|/odm/*) _app_path=${_app_path#/*/} ;;
++        *) return 1 ;;
++    esac
++    case "$_app_path" in app/*.apk|priv-app/*.apk) return 0 ;; esac
++    return 1
++}
++
++system_apk_of() {
++    if [ "$BRING_LIVE" = 1 ] || [ -s "$STAGE/guest_mntns" ]; then
++        _map="$STAGE/bring-system-apps"
++        [ -f "$_map" ] && [ ! -L "$_map" ] && mine "$_map" || return 1
++        awk -v p="$1" '$1 == p {print $2, $3; exit}' "$_map"
++    else
++        bring_system_records "$1" | awk -v p="$1" '$1 == p {print $2, $3; exit}'
++    fi
++}
++
++# Resolve a system record to the host's APK, never to the bridged guest /data/app.
++bring_resolve_system_apk() {
++    _uid=${1%% *}
++    _path=${1#* }
++    is_dec "$_uid" && ge "$_uid" 10000 && ge 19999 "$_uid" && bring_system_path "$_path" || return 1
++    case "$_path" in
++        /data/app/*)
++            if [ "$BRING_LIVE" = 1 ] || [ -s "$STAGE/guest_mntns" ]; then
++                bring_view || return 1
++                printf '%s\n' "$T/mnt/oneos_oneui/${_path#/data/}"
++                return
++            fi ;;
++    esac
++    printf '%s\n' "$T$_path"
++}
++
+ bring_one() { # <a name is_package accepted>
+     pkg=$1
+     BRING_WHY=""
+     dst="$STAGE/data/oneos_bring/$pkg"
+-    # Its APKs: the folder pm names under /data/app (a user app; One UI's
+-    # own apps stay on One UI, and the app never offers them).
+-    first=$(apk_of "$pkg")
+-    apkdir=""
+-    case "$first" in *..*) ;; "$DATA"/app/*/*.apk|"$T"/mnt/oneos_oneui/app/*/*.apk) apkdir=${first%/*} ;; esac
+-    if [ -z "$apkdir" ] || [ ! -f "$first" ] || [ -L "$first" ]; then
++    system_record=""
++    if [ "$BRING_LIVE" != 1 ] || [ "$BRING_SYSTEM" = 1 ]; then
++        system_record=$(system_apk_of "$pkg")
++    fi
++    system=0
++    if [ -n "$system_record" ] || [ "$BRING_SYSTEM" = 1 ]; then
++        system=1
++        first=$(bring_resolve_system_apk "$system_record")
++        BRING_WHY="no portable system APK available on One UI"
++    else
++        first=$(apk_of "$pkg")
++        case "$first" in *..*) first="" ;; "$DATA"/app/*/*.apk|"$T"/mnt/oneos_oneui/app/*/*.apk) ;; *) first="" ;; esac
+         BRING_WHY="not an installed user app"
++    fi
++    if [ ! -f "$first" ] || [ -L "$first" ]; then
+         say "@@INFO $pkg: $BRING_WHY, skipped"
+         return 1
+     fi
+-    bring_sources
++    apkdir=${first%/*}
++    # A flat system directory can contain independent APKs. Only a package's
++    # own directory may contribute split APKs.
++    set -- "$first"
++    case "${apkdir##*/}" in app|priv-app) ;; *) set -- "$apkdir"/*.apk ;; esac
++    BCE=""; BDE=""
++    [ "$system" = 1 ] || bring_sources
+     # Room for it, and 2 GiB left for One UI afterwards.
+-    kb=$(du -sk "$apkdir" "$BCE" "$BDE" 2>/dev/null | awk '{ s += $1 } END { print s + 0 }')
+-    set -- $(stat -f -c '%a %S' "$DATA" 2>/dev/null)
+-    if ! { is_dec "$kb" && is_dec "$1" && is_dec "$2" && awk -v f="$1" -v b="$2" -v k="$kb" 'BEGIN { exit !(f * b / 1024 >= k + 2097152) }'; }; then
++    kb=$(du -sk "$@" ${BCE:+"$BCE"} ${BDE:+"$BDE"} 2>/dev/null | awk '{total += $1} END {print total + 0}')
++    free=$(stat -f -c '%a %S' "$DATA" 2>/dev/null)
++    blocks=${free%% *}; block_size=${free#* }
++    if ! { is_dec "$kb" && is_dec "$blocks" && is_dec "$block_size" && awk -v f="$blocks" -v b="$block_size" -v k="$kb" 'BEGIN { exit !(f * b / 1024 >= k + 2097152) }'; }; then
+         BRING_WHY="not enough free space on the phone"
+         say "@@INFO $pkg: $BRING_WHY, skipped"
+         return 1
+@@ -2389,7 +2458,10 @@ bring_one() { # <a name is_package accepted>
+     bring_clearout "$NEW" || true
+     mkdir_mine "$NEW" && mkdir_mine "$NEW/apk" || die "could not make ${NEW#$T}"
+     date +%s > "$NEW/since" || die "could not write in ${NEW#$T}"
+-    for apk in "$apkdir"/*.apk; do
++    if [ "$system" = 1 ]; then
++        : > "$NEW/system" && own "$NEW/system" 0600 || die "could not mark the system app copy"
++    fi
++    for apk in "$@"; do
+         [ -f "$apk" ] && [ ! -L "$apk" ] || continue
+         name=${apk##*/}
+         case "$name" in *[!A-Za-z0-9._-]*) continue ;; esac
+@@ -2403,7 +2475,7 @@ bring_one() { # <a name is_package accepted>
+             case "${BFROM##*/}" in cache|code_cache) continue ;; esac
+             cp -a "$BFROM" "$NEW/ce/" 2>/dev/null || lost=$((lost + 1))
+         done
+-    else
++    elif [ "$system" = 0 ]; then
+         lost=$((lost + 1))
+     fi
+     if [ -d "$BDE" ] && [ ! -L "$BDE" ]; then
+@@ -2487,7 +2559,10 @@ do_bring_add() {
+     [ -d "$STAGE/data/oneos_bring_catalog" ] && mine "$STAGE/data/oneos_bring_catalog" || refuse "no catalog of apps (start this system from the OneOS app)"
+     catf="$STAGE/data/oneos_bring_catalog/catalog.tsv"
+     [ -f "$catf" ] && [ ! -L "$catf" ] || refuse "no catalog of apps (start this system from the OneOS app)"
+-    cut -f1 "$catf" | grep -q -x -F "$1" || refuse "$1 is not in the catalog"
++    mine "$catf" || refuse "the catalog is not root's"
++    app_type=$(awk -F '\t' -v p="$1" '$1 == p { if ($4 == "system") print "system"; else print "user"; exit }' "$catf")
++    [ -n "$app_type" ] || refuse "$1 is not in the catalog"
++    [ "$app_type" != system ] || BRING_SYSTEM=1
+     BRING_LIVE=1
+     bring_dirs
+     NEW="$STAGE/data/oneos_bring/.incoming"
+@@ -2497,7 +2572,8 @@ do_bring_add() {
+ }
+ 
+ # The apps One UI offers, for the guest's own screen: stdin is the catalog, one
+-# "<package> TAB <label> TAB <base64 of a PNG icon>" line per app. Every line is
++# "<package> TAB <label> TAB <base64 of a PNG icon>" line per user app or
++# "<package> TAB <label> TAB - TAB system" per system app. Every line is
+ # checked before anything is written (a bad line changes nothing), then the file
+ # is written beside its place and renamed in. The guest reads it at
+ # /data/oneos_bring_catalog/catalog.tsv (folder 0755, file 0644: not secret).
+@@ -2515,9 +2591,11 @@ do_bring_catalog() {
+     tab=$(printf '\t')
+     list=""
+     n=0
++    user_apps=0
++    system_apps=0
+     while IFS= read -r line || [ -n "$line" ]; do
+         n=$((n + 1))
+-        [ "$n" -le 400 ] || { rm -f "$part"; refuse "the catalog has more than 400 apps"; }
++        [ "$n" -le 1600 ] || { rm -f "$part"; refuse "the catalog has more than 1600 apps"; }
+         case "$line" in *"$tab"*"$tab"*) ;; *) rm -f "$part"; refuse "catalog line $n is not package, label, icon" ;; esac
+         pkg=${line%%"$tab"*}
+         rest=${line#*"$tab"}
+@@ -2528,12 +2606,26 @@ do_bring_catalog() {
+         list="$list $pkg"
+         [ -n "$label" ] && [ ${#label} -le 320 ] || { rm -f "$part"; refuse "catalog line $n: label is empty or too long"; }
+         case "$label" in *[[:cntrl:]]*) rm -f "$part"; refuse "catalog line $n: label has control characters" ;; esac
+-        [ -n "$icon" ] && [ ${#icon} -le 262144 ] || { rm -f "$part"; refuse "catalog line $n: icon is empty or too large"; }
+-        case "$icon" in *[!A-Za-z0-9+/=]*) rm -f "$part"; refuse "catalog line $n: icon is not base64" ;; esac
++        if [ "$icon" = "-${tab}system" ]; then
++            system_apps=$((system_apps + 1))
++        else
++            user_apps=$((user_apps + 1))
++            [ "$user_apps" -le 400 ] || { rm -f "$part"; refuse "the catalog has more than 400 user apps"; }
++            [ -n "$icon" ] && [ ${#icon} -le 262144 ] || { rm -f "$part"; refuse "catalog line $n: icon is empty or too large"; }
++            case "$icon" in *[!A-Za-z0-9+/=]*) rm -f "$part"; refuse "catalog line $n: icon is not base64" ;; esac
++        fi
+     done < "$part"
+-    if [ ! -d "$STAGE/data" ]; then
+-        mkdir "$STAGE/data" && own "$STAGE/data" 0755 || die "could not make the stage's data folder"
++    if [ "$system_apps" -gt 0 ]; then
++        # mktemp gives the host-only path snapshot a fresh name and 0600 mode.
++        _map_tmp=$(mktemp "$STAGE/incoming/bring-system.XXXXXX") || die "could not create the host system app list"
++        bring_system_records > "$_map_tmp" && own "$_map_tmp" 0600 &&
++            mv -f "$_map_tmp" "$STAGE/bring-system-apps" || {
++                rm -f "$_map_tmp" "$part"
++                die "could not write the host system app list"
++            }
+     fi
++    # Prepare the restore script even when the first request comes from the guest.
++    bring_dirs
+     mkdir_mine "$STAGE/data/oneos_bring_catalog" || die "could not make the catalog folder"
+     mv "$part" "$STAGE/data/oneos_bring_catalog/catalog.new" || die "could not write the catalog"
+     own "$STAGE/data/oneos_bring_catalog/catalog.new" 0644 || die "could not write the catalog"
+@@ -2606,7 +2698,13 @@ do_bring_forget() {
+     idle_or_refuse
+     [ ! -L "$STAGE/data" ] || refuse "${STAGE#$T}/data is a link"
+     bring_dirs
+-    kb=$(du -sk "$STAGE/data/oneos_bring/$1" 2>/dev/null | cut -f1)
++    copy="$STAGE/data/oneos_bring/$1"
++    forget=1
++    if [ -f "$copy/system" ] && [ ! -L "$copy/system" ]; then
++        stamp=$(bring_mark "$copy/stamp")
++        [ -n "$stamp" ] && [ "$(bring_mark "$copy/applied")" = "$stamp" ] || forget=0
++    fi
++    kb=$(du -sk "$copy" 2>/dev/null | cut -f1)
+     is_dec "$kb" || kb=0
+     # Its own partials only (".<pkg>" and ".<pkg>-<suffix>"; a package name has no "-"):
+     # ".<pkg>"* or ".<pkg>".* would also take another package's whose name starts with
+@@ -2619,7 +2717,7 @@ do_bring_forget() {
+     part="$STAGE/data/oneos_bring/.forget.new"
+     {
+         if [ -f "$dst" ] && [ ! -L "$dst" ] && mine "$dst"; then cat "$dst"; fi
+-        echo "$1"
++        [ "$forget" != 1 ] || echo "$1"
+     } | while read -r line; do
+         if is_package "$line"; then echo "$line"; fi
+     done | sort -u > "$part"
+@@ -2661,12 +2759,20 @@ do_bring_status() {
+             change=same
+             was=""
+             if [ -f "$dst/stamp" ] && [ ! -L "$dst/stamp" ]; then was=$(sed -n 2p "$dst/stamp" 2>/dev/null); fi
+-            now=$(apk_of "$pkg")
+-            bring_sources
++            system=0
++            if [ -f "$dst/system" ] && [ ! -L "$dst/system" ]; then
++                system=1
++                now=$(bring_resolve_system_apk "$(system_apk_of "$pkg")")
++            else
++                now=$(apk_of "$pkg")
++                bring_sources
++            fi
+             if [ -z "$now" ]; then
+                 change=gone
+             elif [ -n "$was" ] && [ "$now" != "$was" ]; then
+                 change=app
++            elif [ "$system" = 1 ]; then
++                [ "$now" -nt "$dst/stamp" ] && change=app
+             elif [ ! -f "$dst/since" ] || [ -L "$dst/since" ]; then
+                 change=data
+             else
+diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/session/BringAppsJob.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/session/BringAppsJob.kt
+index cd60fd5..5467833 100644
+--- a/app-android/app/src/full/kotlin/com/fahadali/oneos/session/BringAppsJob.kt
++++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/session/BringAppsJob.kt
+@@ -47,7 +47,7 @@ import com.fahadali.oneos.probe.ProbeSession
+ object BringAppsJob : BackgroundJob<BringAppsJob.State>(State(), "oneos-bring-apps") {
+     enum class Phase { IDLE, LOADING, COLLECTING, CLEARING, DONE, FAILED }
+ 
+-    data class Candidate(val pkg: String, val label: String, val version: String)
++    data class Candidate(val pkg: String, val label: String, val version: String, val system: Boolean)
+ 
+     data class State(
+         val phase: Phase = Phase.IDLE,
+@@ -203,11 +203,9 @@ object BringAppsJob : BackgroundJob<BringAppsJob.State>(State(), "oneos-bring-ap
+     /** Ticks or unticks one app; kept in prefs for this system until it is brought. */
+     fun toggle(ctx: Context, pkg: String, on: Boolean) = retick(ctx) { if (on) it + pkg else it - pkg }
+ 
+-    /** Select all: every app in the list, or none. */
+-    fun setAll(ctx: Context, on: Boolean) {
+-        val all = state.candidates?.map { it.pkg }?.toSet() ?: return
+-        retick(ctx) { if (on) all else emptySet() }
+-    }
++    /** Change the visible group without clearing selections hidden by search or filters. */
++    fun setVisible(ctx: Context, packages: Set<String>, on: Boolean) =
++        retick(ctx) { if (on) it + packages else it - packages }
+ 
+     /** Ticks these as well (the brought apps that are newer on One UI). */
+     fun tick(ctx: Context, pkgs: Collection<String>) = retick(ctx) { it + pkgs }
+@@ -468,7 +466,10 @@ object BringAppsJob : BackgroundJob<BringAppsJob.State>(State(), "oneos-bring-ap
+     fun sendCatalog(ctx: Context): Boolean = runCatching {
+         val app = ctx.applicationContext
+         val pm = app.packageManager
+-        val entries = candidates(app).mapNotNull { c -> iconPng(pm, c.pkg)?.let { BringCatalog.Entry(c.pkg, c.label, it) } }
++        val entries = candidates(app).mapNotNull { c ->
++            val icon = if (c.system) ByteArray(0) else iconPng(pm, c.pkg)
++            icon?.let { BringCatalog.Entry(c.pkg, c.label, it, c.system) }
++        }
+         val bytes = BringCatalog.text(entries).toByteArray()
+         su(app)
+         val reply = RootVerbs.run(
+@@ -528,21 +529,19 @@ object BringAppsJob : BackgroundJob<BringAppsJob.State>(State(), "oneos-bring-ap
+     private fun candidates(app: Context): List<Candidate> {
+         val pm = app.packageManager
+         val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
+-        val seen = mutableSetOf<String>()
+-        val out = mutableListOf<Candidate>()
+-        for (ri in pm.queryIntentActivities(intent, 0)) {
+-            val ai = ri.activityInfo?.applicationInfo ?: continue
++        val launchable = pm.queryIntentActivities(intent, 0).mapNotNull { it.activityInfo?.packageName }.toSet()
++        val systemFlags = ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP
++        return pm.getInstalledApplications(0).mapNotNull { ai ->
+             val pkg = ai.packageName
+-            if (!seen.add(pkg)) continue
+-            // Runs as a system uid (a shared-uid package): not a user app, and the guest could not install it.
+-            if (ai.uid < android.os.Process.FIRST_APPLICATION_UID) continue
+-            val system = (ai.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP)) != 0
+-            if (!BringApps.eligible(pkg, system, launchable = true)) continue
++            val system = (ai.flags and systemFlags) != 0
++            if (ai.uid < android.os.Process.FIRST_APPLICATION_UID ||
++                !BringApps.eligible(pkg, system, pkg in launchable) ||
++                (system && !BringApps.portableSystemApk(ai.sourceDir.orEmpty()))
++            ) return@mapNotNull null
+             val label = runCatching { ai.loadLabel(pm).toString() }.getOrDefault(pkg).ifBlank { pkg }
+             val version = runCatching { pm.getPackageInfo(pkg, 0).versionName ?: "" }.getOrDefault("")
+-            out += Candidate(pkg, label, version)
+-        }
+-        return out.sortedBy { it.label.lowercase() }
++            Candidate(pkg, label, version, system)
++        }.sortedBy { it.label.lowercase() }
+     }
+ 
+     /** The boot screen's status while a Bring started on the Apps screen is waited for. */
+diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/BringAppsActivity.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/BringAppsActivity.kt
+index 1ca93ee..d8294a5 100644
+--- a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/BringAppsActivity.kt
++++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/BringAppsActivity.kt
+@@ -12,19 +12,21 @@ import com.fahadali.oneos.R
+ import com.fahadali.oneos.core.model.BringApps
+ import com.fahadali.oneos.core.model.BringApps.Change
+ import com.fahadali.oneos.core.model.BringApps.CopyState
++import com.fahadali.oneos.core.model.BringApps.Filter
+ import com.fahadali.oneos.core.model.ImageRef
+ import com.fahadali.oneos.core.model.Images
+ import com.fahadali.oneos.core.model.Level
+ import com.fahadali.oneos.session.BringAppsJob
+ import com.fahadali.oneos.session.BringAppsJob.Phase
+ import com.fahadali.oneos.session.StageCheck
++import com.fahadali.oneos.shared.BringAppFilters
+ import dev.oneuiproject.oneui.R as OuiIcons
+ 
+ /**
+  * Bring apps (on each system's page, next to Root, 0.4.75, owner: "a way to select our 3rd party apps we
+  * want to bring over with us to guest OS with its data ... so we dont have to
+  * keep logging in"). Three cards: how it works (naming the system set up now),
+- * the user apps One UI has with a box to tick each, and the actions.
++ * the apps One UI has with a box to tick each, and the actions.
+  *
+  * Build 104 (owner: "apps list should have select all button too, and apps
+  * whose data or app itself has been updated should be reminded to toggle
+@@ -64,6 +66,8 @@ class BringAppsActivity : ToolbarActivity() {
+ 
+ class BringAppsFragment : CardsFragment() {
+     private val subs = mutableListOf<() -> Unit>()
++    private var filter = Filter.USER
++    private var search = ""
+ 
+     /** Read the apps again on a fresh visit (a new install since); a rotation keeps the list and the last result. */
+     private var loadOnStart = false
+@@ -74,6 +78,14 @@ class BringAppsFragment : CardsFragment() {
+     override fun onCreate(savedInstanceState: Bundle?) {
+         super.onCreate(savedInstanceState)
+         loadOnStart = savedInstanceState == null
++        filter = Filter.entries.getOrNull(savedInstanceState?.getInt("bring_filter") ?: 0) ?: Filter.USER
++        search = savedInstanceState?.getString("bring_search").orEmpty()
++    }
++
++    override fun onSaveInstanceState(outState: Bundle) {
++        super.onSaveInstanceState(outState)
++        outState.putInt("bring_filter", filter.ordinal)
++        outState.putString("bring_search", search)
+     }
+ 
+     override fun onStart() {
+@@ -139,30 +151,17 @@ class BringAppsFragment : CardsFragment() {
+             candidates.isEmpty() ->
+                 CardRows.status(apps, Level.INFO, getString(R.string.bring_none), getString(R.string.bring_none_summary, system))
+             else -> {
+-                // Brought and installed there, and One UI's app or data changed since: one tap ticks them.
+-                val newer = candidates.filter { c -> c.pkg !in st.selected && copies[c.pkg]?.let { it.state == CopyState.INSTALLED && it.newer } == true }
+-                if (newer.isNotEmpty()) {
+-                    val tickThem: ((View) -> Unit)? = if (st.busy) null else { _ -> BringAppsJob.tick(ctx, newer.map { it.pkg }) }
+-                    CardRows.status(
+-                        apps, Level.INFO,
+-                        resources.getQuantityString(R.plurals.bring_newer_n, newer.size, newer.size),
+-                        getString(R.string.bring_newer_summary, system), tickThem,
+-                    )
+-                }
+-                CardRows.tick(
+-                    apps, getString(R.string.bring_select_all),
+-                    resources.getQuantityString(R.plurals.bring_select_all_n, candidates.size, candidates.size),
+-                    checked = ticked == candidates.size,
+-                    enabled = !st.busy,
+-                ) { on -> BringAppsJob.setAll(ctx, on) }
+-                for (c in candidates) {
+-                    CardRows.tick(
+-                        apps, c.label,
+-                        rowSummary(c, copies[c.pkg], c.pkg in st.selected, system),
+-                        checked = c.pkg in st.selected,
+-                        enabled = !st.busy,
+-                    ) { on -> BringAppsJob.toggle(ctx, c.pkg, on) }
+-                }
++                val rows = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL }
++                apps.addView(BringAppFilters(
++                    ctx, getString(R.string.bring_search), getString(R.string.bring_filter),
++                    resources.getStringArray(R.array.bring_filters).toList(), filter, search,
++                ) { type, query ->
++                    filter = type
++                    search = query
++                    showApps(rows, candidates, copies, BringAppsJob.state.selected, BringAppsJob.state.busy, system)
++                })
++                apps.addView(rows)
++                showApps(rows, candidates, copies, st.selected, st.busy, system)
+             }
+         }
+ 
+@@ -313,6 +312,56 @@ class BringAppsFragment : CardsFragment() {
+         }
+     }
+ 
++    private fun showApps(
++        rows: LinearLayout,
++        candidates: List<BringAppsJob.Candidate>,
++        copies: Map<String, BringApps.Copy>,
++        selected: Set<String>,
++        busy: Boolean,
++        system: String,
++    ) {
++        val ctx = rows.context
++        val visible = candidates.filter { filter.matches(it.system, it.label, it.pkg, search) }
++        rows.removeAllViews()
++        if (filter != Filter.USER) {
++            CardRows.text(rows, getString(R.string.bring_system_summary), R.style.OneOS_Text_Caption, inList = true)
++        }
++        if (visible.isEmpty()) {
++            CardRows.status(rows, Level.INFO, getString(R.string.bring_no_matches), null)
++            return
++        }
++        // Bulk actions affect only the user apps shown by the current filter and search.
++        val userPackages = visible.filterNot { it.system }.mapTo(mutableSetOf()) { it.pkg }
++        val newer = visible.filter { c ->
++            !c.system && c.pkg !in selected && copies[c.pkg]?.let { it.state == CopyState.INSTALLED && it.newer } == true
++        }
++        if (newer.isNotEmpty()) {
++            val tickThem: ((View) -> Unit)? = if (busy) null else { _ -> BringAppsJob.tick(ctx, newer.map { it.pkg }) }
++            CardRows.status(
++                rows, Level.INFO,
++                resources.getQuantityString(R.plurals.bring_newer_n, newer.size, newer.size),
++                getString(R.string.bring_newer_summary, system), tickThem,
++            )
++        }
++        if (userPackages.isNotEmpty()) {
++            CardRows.tick(
++                rows, getString(R.string.bring_select_visible_user),
++                resources.getQuantityString(R.plurals.bring_select_all_n, userPackages.size, userPackages.size),
++                checked = selected.containsAll(userPackages),
++                enabled = !busy,
++            ) { on -> BringAppsJob.setVisible(ctx, userPackages, on) }
++        }
++        for (c in visible) {
++            val summary = rowSummary(c, copies[c.pkg], c.pkg in selected, system)
++            CardRows.tick(
++                rows, c.label,
++                if (c.system) getString(R.string.bring_system_row, summary) else summary,
++                checked = c.pkg in selected,
++                enabled = !busy,
++            ) { on -> BringAppsJob.toggle(ctx, c.pkg, on) }
++        }
++    }
++
+     /** An app's line in the list: its version and package, or what became of its copy in the system. */
+     private fun rowSummary(c: BringAppsJob.Candidate, copy: BringApps.Copy?, ticked: Boolean, system: String): String = when {
+         copy == null -> if (c.version.isBlank()) c.pkg else getString(R.string.bring_app_summary, c.version, c.pkg)
+diff --git a/app-android/app/src/full/res/values/strings_bring_filters.xml b/app-android/app/src/full/res/values/strings_bring_filters.xml
+new file mode 100644
+index 0000000..aadde4a
+--- /dev/null
++++ b/app-android/app/src/full/res/values/strings_bring_filters.xml
+@@ -0,0 +1,14 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="bring_search">Search by app name or package</string>
++    <string name="bring_filter">App type</string>
++    <string name="bring_no_matches">No apps match your search or filter.</string>
++    <string name="bring_system_summary">System apps are installed as regular apps when compatible. Only their APK files are copied.</string>
++    <string name="bring_system_row">System app · %1$s</string>
++    <string-array name="bring_filters">
++        <item>User apps</item>
++        <item>System apps</item>
++        <item>All apps</item>
++    </string-array>
++    <string name="bring_select_visible_user">Select visible user apps</string>
++</resources>
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/BringApps.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/BringApps.kt
+index e3b51f0..a604b09 100644
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/BringApps.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/BringApps.kt
+@@ -63,15 +63,25 @@ object BringApps {
+         "com.topjohnwu.magisk",
+     )
+ 
+-    /**
+-     * May this package be brought into the guest? A plain user app that is not
+-     * one of ours. [system] is the app's FLAG_SYSTEM / updated-system-app state
+-     * (One UI's own apps stay on One UI; the guest has its own). [launchable]
+-     * is whether it has a launcher entry — the apps the owner means ("XGram
+-     * etc") all do, and it keeps service-only and component packages out.
+-     */
++    /** User apps need a launcher entry. System apps can also be selected by package name. */
+     fun eligible(pkg: String, system: Boolean, launchable: Boolean): Boolean =
+-        PACKAGE.matches(pkg) && !system && launchable && pkg !in NEVER
++        PACKAGE.matches(pkg) && (system || launchable) && pkg !in NEVER
++
++    // Keep the allowed app directories in sync with bring_system_path in oneos_root.sh.
++    private val systemApk = Regex(
++        "^/(?:data/app|(?:system(?:/system_ext|/product|/vendor|/odm)?|system_ext|product|vendor|odm)/(?:app|priv-app))/[A-Za-z0-9._~+=/-]+\\.apk$"
++    )
++
++    fun portableSystemApk(path: String): Boolean =
++        systemApk.matches(path) && path.split('/').drop(1).none { it.isEmpty() || it.startsWith('.') }
++
++    enum class Filter {
++        USER, SYSTEM, ALL;
++
++        fun matches(system: Boolean, label: String, pkg: String, query: String): Boolean =
++            (this == ALL || (this == SYSTEM) == system) &&
++                (label.contains(query.trim(), ignoreCase = true) || pkg.contains(query.trim(), ignoreCase = true))
++    }
+ 
+     /** The `selected.list` text for a set of packages (sorted, one per line, trailing newline). */
+     fun manifest(packages: Collection<String>): String =
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/BringCatalog.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/BringCatalog.kt
+index d4cadcc..e3b52ff 100644
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/BringCatalog.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/BringCatalog.kt
+@@ -7,7 +7,8 @@ package com.fahadali.oneos.core.model
+  * `bring-catalog` writes it to `$STAGE/data/oneos_bring_catalog/catalog.tsv`
+  * (the guest reads it at `/data/oneos_bring_catalog/catalog.tsv`, not secret:
+  * names and icons only). One line per app, tab separated:
+- * `<package> TAB <label> TAB <base64 of a 96x96 PNG icon, no line breaks>`.
++ * `<package> TAB <label> TAB <base64 PNG icon>`. System entries use a compact
++ * `- TAB system` in place of the icon. The original format still identifies user apps.
+  * The root script checks every line again before it writes anything.
+  */
+ object BringCatalog {
+@@ -16,12 +17,13 @@ object BringCatalog {
+     const val FILE = "catalog.tsv"
+ 
+     /** At most this many lines, and this many bytes in all (the root script refuses more). */
+-    const val MAX_APPS = 400
++    const val MAX_APPS = 1600
++    const val MAX_USER_APPS = 400
+     const val MAX_BYTES = 4 * 1024 * 1024
+     const val MAX_LABEL = 80
+ 
+     /** One app of the catalog: [png] is its icon, 96x96. */
+-    class Entry(val pkg: String, val label: String, val png: ByteArray)
++    class Entry(val pkg: String, val label: String, val png: ByteArray, val system: Boolean = false)
+ 
+     /**
+      * [raw] as one line of text: tabs, line breaks and other control characters
+@@ -48,8 +50,8 @@ object BringCatalog {
+ 
+     /** The line for [e], or null when its package is not a package name. */
+     fun line(e: Entry): String? {
+-        if (!BringApps.PACKAGE.matches(e.pkg) || e.png.isEmpty()) return null
+-        val icon = java.util.Base64.getEncoder().encodeToString(e.png)
++        if (!BringApps.PACKAGE.matches(e.pkg) || (!e.system && e.png.isEmpty())) return null
++        val icon = if (e.system) "-\tsystem" else java.util.Base64.getEncoder().encodeToString(e.png)
+         return "${e.pkg}\t${label(e.label, e.pkg)}\t$icon\n"
+     }
+ 
+@@ -61,18 +63,19 @@ object BringCatalog {
+     fun text(entries: Collection<Entry>): String {
+         val sb = StringBuilder()
+         var bytes = 0
+-        var n = 0
++        var users = 0
+         val seen = HashSet<String>()
+-        for (e in entries.sortedWith(compareBy({ label(it.label, it.pkg).lowercase() }, { it.pkg }))) {
+-            if (n >= MAX_APPS) break
+-            if (e.pkg in seen) continue
++        // Small system entries fit without consuming much of the user apps' icon budget.
++        for (e in entries.sortedWith(compareBy({ !it.system }, { label(it.label, it.pkg).lowercase() }, { it.pkg }))) {
++            if (seen.size >= MAX_APPS) break
++            if (e.pkg in seen || (!e.system && users >= MAX_USER_APPS)) continue
+             val l = line(e) ?: continue
+             val size = l.toByteArray().size
+             if (bytes + size > MAX_BYTES) continue
+             seen += e.pkg
+             sb.append(l)
+             bytes += size
+-            n++
++            if (!e.system) users++
+         }
+         return sb.toString()
+     }
+diff --git a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/BringAppsTest.kt b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/BringAppsTest.kt
+index a0ccd1b..4ee44cf 100644
+--- a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/BringAppsTest.kt
++++ b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/BringAppsTest.kt
+@@ -14,9 +14,9 @@ class BringAppsTest {
+     }
+ 
+     @Test
+-    fun systemAppsAndComponentsAndOursAreNot() {
+-        // One UI / system apps stay on One UI.
+-        assertFalse(BringApps.eligible("com.samsung.android.messaging", system = true, launchable = true))
++    fun systemAppsCanBeListedWithoutLauncherEntries() {
++        assertTrue(BringApps.eligible("com.samsung.android.messaging", system = true, launchable = true))
++        assertTrue(BringApps.eligible("org.example.component", system = true, launchable = false))
+         // No launcher entry (a service/component package): not offered.
+         assertFalse(BringApps.eligible("com.google.android.gms", system = false, launchable = false))
+         // Our own app, the guest, and root managers are never brought.
+@@ -25,6 +25,19 @@ class BringAppsTest {
+         }
+     }
+ 
++    @Test
++    fun systemSourcesAndSearchFilters() {
++        assertTrue(BringApps.portableSystemApk("/system/priv-app/Messages/Messages.apk"))
++        assertTrue(BringApps.portableSystemApk("/data/app/~~token==/org.example.app-token==/base.apk"))
++        assertFalse(BringApps.portableSystemApk("/product/overlay/Overlay.apk"))
++        assertFalse(BringApps.portableSystemApk("/apex/com.android.wifi/app/App.apk"))
++        assertFalse(BringApps.portableSystemApk("/system/app/../framework/framework-res.apk"))
++        assertTrue(BringApps.Filter.SYSTEM.matches(true, "Messaging", "org.example.app", " MES "))
++        assertTrue(BringApps.Filter.ALL.matches(true, "Messaging", "org.example.app", "EXAMPLE"))
++        assertFalse(BringApps.Filter.USER.matches(true, "Messaging", "org.example.app", ""))
++        assertFalse(BringApps.Filter.SYSTEM.matches(false, "Messaging", "org.example.app", ""))
++    }
++
+     @Test
+     fun nonPackageStringsAreRejected() {
+         for (bad in listOf("", "telegram", "..", "com..messenger", "1com.app", "com.app/../etc", "com.app;rm")) {
+diff --git a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/BringCatalogTest.kt b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/BringCatalogTest.kt
+index 4749b1c..7cd3dac 100644
+--- a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/BringCatalogTest.kt
++++ b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/BringCatalogTest.kt
+@@ -35,6 +35,16 @@ class BringCatalogTest {
+         assertNull(BringCatalog.line(BringCatalog.Entry("org.example.chat", "x", ByteArray(0))))
+     }
+ 
++    @Test
++    fun systemEntriesUseACompactFieldAndPreserveUserEntryFormat() {
++        val system = BringCatalog.Entry("org.example.component", "Component", ByteArray(0), system = true)
++        assertEquals("org.example.component\tComponent\t-\tsystem\n", BringCatalog.line(system))
++        val entries = (1..500).map { index ->
++            BringCatalog.Entry("org.example.system$index", "System $index", ByteArray(0), system = true)
++        } + (1..400).map { BringCatalog.Entry("org.example.user$it", "User $it", png) }
++        assertEquals(900, BringCatalog.text(entries).lineSequence().count { it.isNotEmpty() })
++    }
++
+     @Test
+     fun textIsSortedDistinctAndCapped() {
+         val t = BringCatalog.text(
+@@ -47,7 +57,7 @@ class BringCatalogTest {
+         )
+         assertEquals(listOf("org.example.a", "org.example.b"), t.lines().filter { it.isNotEmpty() }.map { it.substringBefore('\t') })
+         val many = (1..450).map { BringCatalog.Entry("org.example.app$it", "App $it", png) }
+-        assertEquals(BringCatalog.MAX_APPS, BringCatalog.text(many).lines().count { it.isNotEmpty() })
++        assertEquals(BringCatalog.MAX_USER_APPS, BringCatalog.text(many).lines().count { it.isNotEmpty() })
+         val big = ByteArray(1_000_000) { 7 }
+         val bytes = BringCatalog.text((1..10).map { BringCatalog.Entry("org.example.big$it", "Big $it", big) }).toByteArray().size
+         assertTrue(bytes <= BringCatalog.MAX_BYTES)
+diff --git a/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/FakeRoot.kt b/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/FakeRoot.kt
+index bc15070..e9a7f61 100644
+--- a/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/FakeRoot.kt
++++ b/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/FakeRoot.kt
+@@ -101,6 +101,11 @@ class FakeRoot(
+         """)
+         stub("pm", """
+             case "${'$'}1" in disable-user|enable) echo "${'$'}*" >> "${'$'}ONEOS_TEST_ROOT/pm_log"; exit 0 ;; esac
++            if [ "${'$'}*" = "list packages -s -f -U --user 0" ] ||
++               [ "${'$'}1 ${'$'}2 ${'$'}3 ${'$'}4 ${'$'}5 ${'$'}6 ${'$'}7" = "list packages -s -f -U --user 0" ]; then
++                [ ! -f "${'$'}ONEOS_TEST_ROOT/pm_system" ] || cat "${'$'}ONEOS_TEST_ROOT/pm_system"
++                exit 0
++            fi
+             [ "${'$'}1" = path ] || exit 1
+             case "${'$'}2" in
+               android) echo "package:/system/framework/framework-res.apk" ;;
+diff --git a/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/StageScriptTest.kt b/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/StageScriptTest.kt
+index 429c59e..2e20bf4 100644
+--- a/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/StageScriptTest.kt
++++ b/app-android/core/root/src/test/kotlin/com/fahadali/oneos/core/root/StageScriptTest.kt
+@@ -2218,7 +2218,48 @@ class StageScriptTest {
+         org.junit.Assert.assertThrows(IllegalArgumentException::class.java) { fr.run(RootScript.Verb.BRING_CLEAR, "x") }
+     }
+ 
+-    /** Only installed user apps (an APK under data/app): never a system app's path, a link, or a path that climbs. */
++    @Test
++    fun bringCopiesSystemApksOfflineAndFromTheHostSnapshot() = eachShell { fr ->
++        val stager = Stager(fr)
++        stager.prepare()
++        val pkg = "org.example.systemapp"
++        val updated = "org.example.updated"
++        val privileged = "org.example.privileged"
++        val path = "/system/priv-app/Example/Example.apk"
++        val updatedPath = "/data/app/~~token==/$updated-token==/base.apk"
++        File(fr.root, path).apply { parentFile.mkdirs(); writeText("host base") }
++        File(fr.root, "/system/priv-app/Example/split_config.apk").writeText("host split")
++        val rows = File(fr.root, "pm_system").apply {
++            writeText("package:$path=$pkg uid:12345\npackage:$path=$privileged uid:1000\npackage:$updatedPath=$updated uid:12346\n")
++        }
++        val staged = File(fr.stage, "data/oneos_bring")
++        File(fr.root, updatedPath).apply { parentFile.mkdirs(); writeText("host update before handoff") }
++        fr.hostCe(pkg).apply { mkdirs(); resolve("settings").writeText("host system data") }
++        val collected = bring(fr, pkg, privileged)
++        stager.ok(collected)
++        assertEquals("bring-collect 1", collected.reply.ok)
++        assertEquals("host base", File(staged, "$pkg/apk/Example.apk").readText())
++        assertEquals("host split", File(staged, "$pkg/apk/split_config.apk").readText())
++        assertFalse(File(staged, "$pkg/ce").exists())
++        assertTrue(File(staged, "$pkg/system").isFile)
++        assertFalse(File(staged, privileged).exists())
++        stager.ok(catalog(fr, "$pkg\tSystem App\t-\tsystem", "$updated\tUpdated App\t-\tsystem"))
++        assertEquals("600", fr.mode(File(fr.stage, "bring-system-apps")))
++
++        // After handoff the running package manager cannot resolve host packages.
++        assertTrue(rows.delete())
++        File(fr.stage, "persist_session.active").writeText("format=2\nboot_id=11111111-2222-3333-4444-555555555555\n")
++        val view = File(fr.root, "mnt/oneos_oneui")
++        File(view, "data").mkdirs()
++        File(view, updatedPath.removePrefix("/data/")).apply { parentFile.mkdirs(); writeText("host view update") }
++        File(fr.root, updatedPath).writeText("guest update")
++        stager.ok(fr.run(RootScript.Verb.BRING_ADD, pkg))
++        stager.ok(fr.run(RootScript.Verb.BRING_ADD, updated))
++        assertEquals("host view update", File(staged, "$updated/apk/base.apk").readText())
++        assertFalse(File(staged, "$updated/ce").exists())
++    }
++
++    /** An unverified system path, a link, or a path that climbs cannot be brought. */
+     @Test
+     fun bringSkipsWhatIsNotAnInstalledUserApp() = eachShell { fr ->
+         val s = Stager(fr)
+diff --git a/app-android/guest/build.gradle.kts b/app-android/guest/build.gradle.kts
+index 802bbfe..799cefd 100644
+--- a/app-android/guest/build.gradle.kts
++++ b/app-android/guest/build.gradle.kts
+@@ -28,8 +28,8 @@ android {
+         minSdk = 31
+         targetSdk = 36
+         // 0.2 (OneOS 0.4.30): How's it going?, the checklist for Send to the OneOS team.
+-        versionCode = 13
+-        versionName = "0.13"
++        versionCode = 14
++        versionName = "0.14"
+     }
+ 
+     signingConfigs {
+diff --git a/app-android/guest/src/main/kotlin/com/fahadali/oneos/guest/BringAppsActivity.kt b/app-android/guest/src/main/kotlin/com/fahadali/oneos/guest/BringAppsActivity.kt
+index f55218d..2844372 100644
+--- a/app-android/guest/src/main/kotlin/com/fahadali/oneos/guest/BringAppsActivity.kt
++++ b/app-android/guest/src/main/kotlin/com/fahadali/oneos/guest/BringAppsActivity.kt
+@@ -14,7 +14,9 @@ import android.widget.Button
+ import android.widget.LinearLayout
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.core.widget.NestedScrollView
++import com.fahadali.oneos.core.model.BringApps.Filter
+ import com.fahadali.oneos.guest.BringCatalogFile.Progress
++import com.fahadali.oneos.shared.BringAppFilters
+ import com.fahadali.oneos.shared.NativeCards
+ import dev.oneuiproject.oneui.layout.ToolbarLayout
+ import dev.oneuiproject.oneui.utils.applyEdgeToEdge
+@@ -30,12 +32,16 @@ import java.io.File
+  * read here every 2 seconds. No root is used here, and nothing is written to One UI.
+  */
+ class BringAppsActivity : AppCompatActivity() {
+-    private class App(val item: BringCatalogFile.Item, val icon: android.graphics.Bitmap?)
++    private data class App(val item: BringCatalogFile.Item, val icon: android.graphics.Bitmap?)
+ 
+     private val handler = Handler(Looper.getMainLooper())
+     private var apps: List<App> = emptyList()
+     private var loaded = false
+     private var missing = false
++    private var installedApps = emptySet<String>()
++    private var knownSystemApps = emptySet<String>()
++    private var filter = Filter.USER
++    private var search = ""
+ 
+     /** pkg -> when it was asked for (ms): a status file older than that is an earlier request's. */
+     private val asked = LinkedHashMap<String, Long>()
+@@ -68,9 +74,25 @@ class BringAppsActivity : AppCompatActivity() {
+         }
+         toolbar.findViewById<dev.oneuiproject.oneui.widget.RoundedFrameLayout>(dev.oneuiproject.oneui.design.R.id.tbl_main_content).apply { roundedCorners = 0; fillHorizontalPadding = false }
+         toolbar.findViewById<View>(dev.oneuiproject.oneui.design.R.id.tbl_bottom_corners).visibility = View.GONE
++        filter = Filter.entries.getOrNull(savedInstanceState?.getInt("bring_filter") ?: 0) ?: Filter.USER
++        search = savedInstanceState?.getString("bring_search").orEmpty()
++        findViewById<LinearLayout>(R.id.guest_bring_filters).addView(BringAppFilters(
++            this, getString(R.string.bring_search), getString(R.string.bring_filter),
++            resources.getStringArray(R.array.bring_filters).toList(), filter, search,
++        ) { type, query ->
++            filter = type
++            search = query
++            render()
++        })
+         render()
+     }
+ 
++    override fun onSaveInstanceState(outState: Bundle) {
++        super.onSaveInstanceState(outState)
++        outState.putInt("bring_filter", filter.ordinal)
++        outState.putString("bring_search", search)
++    }
++
+     override fun onResume() {
+         super.onResume()
+         load()
+@@ -88,11 +110,17 @@ class BringAppsActivity : AppCompatActivity() {
+             val file = File(BringCatalogFile.CATALOG)
+             val text = runCatching { if (file.isFile) file.readText() else null }.getOrNull()
+             val list = text?.let { BringCatalogFile.parse(it) }.orEmpty().map { item ->
+-                App(item, item.png.let { runCatching { BitmapFactory.decodeByteArray(it, 0, it.size) }.getOrNull() })
++                App(item, item.png?.let { runCatching { BitmapFactory.decodeByteArray(it, 0, it.size) }.getOrNull() })
+             }
++            val installed = packageManager.getInstalledApplications(0).map { it.packageName }.toSet()
++            val knownSystem = packageManager.getInstalledApplications(PackageManager.MATCH_UNINSTALLED_PACKAGES)
++                .filter { (it.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0 }
++                .map { it.packageName }.toSet()
+             runOnUiThread {
+                 if (isDestroyed) return@runOnUiThread
+                 apps = list
++                installedApps = installed
++                knownSystemApps = knownSystem
+                 missing = text == null
+                 loaded = true
+                 render()
+@@ -139,20 +167,24 @@ class BringAppsActivity : AppCompatActivity() {
+             NativeCards.row(NativeCards.section(list, null, color), getString(R.string.bring_no_catalog))
+             return
+         }
+-        val shownApps = apps.filter { !installed(it.item.pkg) || it.item.pkg in asked }
+-        if (shownApps.isEmpty()) {
+-            NativeCards.row(NativeCards.section(list, null, color), getString(R.string.bring_none))
+-            return
++        val available = apps.filter { (item) ->
++            item.pkg in asked || (item.pkg !in installedApps && (!item.system || item.pkg !in knownSystemApps))
+         }
++        val shownApps = available.filter { (item) -> filter.matches(item.system, item.label, item.pkg, search) }
+         val writable = requestsWritable()
+         val card = NativeCards.section(list, getString(R.string.bring_intro), color)
++        if (filter != Filter.USER) NativeCards.row(card, getString(R.string.bring_system_summary))
++        if (shownApps.isEmpty()) {
++            NativeCards.row(card, getString(if (available.isEmpty()) R.string.bring_none else R.string.bring_no_matches))
++            return
++        }
+         if (!writable) NativeCards.row(card, getString(R.string.bring_not_writable))
+         for (app in shownApps) {
+             val pkg = app.item.pkg
+             val p = progress(pkg)
+             val ready = p is Progress.Done || (p != null && installed(pkg) && p !is Progress.Failed)
+             val summary = when {
+-                p == null -> pkg
++                p == null -> if (app.item.system) getString(R.string.bring_system_row, pkg) else pkg
+                 ready -> getString(R.string.bring_ready)
+                 p is Progress.Failed -> getString(R.string.bring_failed_tap, p.why)
+                 p is Progress.Installing -> getString(R.string.bring_installing)
+@@ -169,10 +201,11 @@ class BringAppsActivity : AppCompatActivity() {
+                     visibility = View.VISIBLE
+                 }
+             }
+-            if (ready) {
++            val launch = if (ready) packageManager.getLaunchIntentForPackage(pkg) else null
++            if (launch != null) {
+                 val open = LayoutInflater.from(this).inflate(R.layout.item_bring_open, card, false) as Button
+                 open.setOnClickListener {
+-                    packageManager.getLaunchIntentForPackage(pkg)?.let { startActivity(it) }
++                    startActivity(launch)
+                 }
+                 card.addView(open, LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { gravity = android.view.Gravity.END })
+             }
+diff --git a/app-android/guest/src/main/kotlin/com/fahadali/oneos/guest/BringCatalogFile.kt b/app-android/guest/src/main/kotlin/com/fahadali/oneos/guest/BringCatalogFile.kt
+index 5d9c7d7..8340981 100644
+--- a/app-android/guest/src/main/kotlin/com/fahadali/oneos/guest/BringCatalogFile.kt
++++ b/app-android/guest/src/main/kotlin/com/fahadali/oneos/guest/BringCatalogFile.kt
+@@ -5,7 +5,7 @@ import java.util.Base64
+ /**
+  * What the OneOS app on One UI left for this system's Bring apps screen: the
+  * catalog at /data/oneos_bring_catalog/catalog.tsv (one `package TAB label TAB
+- * base64 PNG icon` line per app), and the request / status files of one request
++ * base64 PNG icon` for user apps, `package TAB label TAB - TAB system` for system apps), and the request / status files of one request
+  * under /data/oneos_bring_requests. Pure parsing, no Android classes.
+  */
+ object BringCatalogFile {
+@@ -14,16 +14,18 @@ object BringCatalogFile {
+ 
+     private val PACKAGE = Regex("^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+$")
+ 
+-    class Item(val pkg: String, val label: String, val png: ByteArray)
++    class Item(val pkg: String, val label: String, val png: ByteArray?, val system: Boolean)
+ 
+-    /** The apps of the catalog text; a line that is not exactly three well-formed fields is skipped. */
++    /** Reads user and system entries, including catalogs written by older hosts. */
+     fun parse(text: String): List<Item> {
+         val out = LinkedHashMap<String, Item>()
+         for (line in text.lineSequence()) {
+             val f = line.split('\t')
+-            if (f.size != 3 || !PACKAGE.matches(f[0]) || f[1].isBlank()) continue
+-            val png = runCatching { Base64.getDecoder().decode(f[2]) }.getOrNull() ?: continue
+-            if (f[0] !in out) out[f[0]] = Item(f[0], f[1], png)
++            if (f.size < 3 || !PACKAGE.matches(f[0]) || f[1].isBlank()) continue
++            val system = f.size == 4 && f[2] == "-" && f[3] == "system"
++            if (!system && f.size != 3) continue
++            val png = if (system) null else runCatching { Base64.getDecoder().decode(f[2]) }.getOrNull() ?: continue
++            out.putIfAbsent(f[0], Item(f[0], f[1], png, system))
+         }
+         return out.values.sortedBy { it.label.lowercase() }
+     }
+diff --git a/app-android/guest/src/main/res/layout/activity_guest_bring.xml b/app-android/guest/src/main/res/layout/activity_guest_bring.xml
+index 2f9c15a..e6862c0 100644
+--- a/app-android/guest/src/main/res/layout/activity_guest_bring.xml
++++ b/app-android/guest/src/main/res/layout/activity_guest_bring.xml
+@@ -6,9 +6,14 @@
+         app:handleInsets="false" app:expandable="false" app:expanded="false" app:mainRoundedCorners="top" app:showNavButtonAsBack="true">
+         <androidx.core.widget.NestedScrollView android:id="@+id/guest_bring_scroll"
+             android:layout_width="match_parent" android:layout_height="match_parent" android:clipToPadding="false" android:fillViewport="true">
+-            <LinearLayout android:id="@+id/guest_bring_list" android:layout_width="match_parent"
++            <LinearLayout android:layout_width="match_parent"
+                 android:layout_height="wrap_content" android:orientation="vertical"
+-                android:paddingHorizontal="10dp" android:paddingTop="10dp" android:paddingBottom="20dp" />
++                android:paddingHorizontal="10dp" android:paddingTop="10dp" android:paddingBottom="20dp">
++                <LinearLayout android:id="@+id/guest_bring_filters" android:layout_width="match_parent"
++                    android:layout_height="wrap_content" android:orientation="vertical" />
++                <LinearLayout android:id="@+id/guest_bring_list" android:layout_width="match_parent"
++                    android:layout_height="wrap_content" android:orientation="vertical" />
++            </LinearLayout>
+         </androidx.core.widget.NestedScrollView>
+     </dev.oneuiproject.oneui.layout.ToolbarLayout>
+ </FrameLayout>
+diff --git a/app-android/guest/src/main/res/values/strings_bring_filters.xml b/app-android/guest/src/main/res/values/strings_bring_filters.xml
+new file mode 100644
+index 0000000..9bc4e9f
+--- /dev/null
++++ b/app-android/guest/src/main/res/values/strings_bring_filters.xml
+@@ -0,0 +1,13 @@
++<?xml version="1.0" encoding="utf-8"?>
++<resources>
++    <string name="bring_search">Search by app name or package</string>
++    <string name="bring_filter">App type</string>
++    <string name="bring_no_matches">No apps match your search or filter.</string>
++    <string name="bring_system_summary">System apps are installed as regular apps when compatible. Only their APK files are copied.</string>
++    <string name="bring_system_row">System app · %1$s</string>
++    <string-array name="bring_filters">
++        <item>User apps</item>
++        <item>System apps</item>
++        <item>All apps</item>
++    </string-array>
++</resources>
+diff --git a/app-android/shared-guest-ui/BringAppFilters.kt b/app-android/shared-guest-ui/BringAppFilters.kt
+new file mode 100644
+index 0000000..b65284e
+--- /dev/null
++++ b/app-android/shared-guest-ui/BringAppFilters.kt
+@@ -0,0 +1,66 @@
++package com.fahadali.oneos.shared
++
++import android.content.Context
++import android.view.View
++import android.widget.AdapterView
++import android.widget.ArrayAdapter
++import android.widget.LinearLayout
++import androidx.appcompat.widget.AppCompatSpinner
++import androidx.appcompat.widget.SearchView
++import com.fahadali.oneos.core.model.BringApps.Filter
++
++class BringAppFilters(
++    context: Context,
++    hint: CharSequence,
++    filterLabel: CharSequence,
++    options: List<String>,
++    initialFilter: Filter,
++    initialQuery: String,
++    onChange: (Filter, String) -> Unit,
++) : LinearLayout(context) {
++    init {
++        orientation = VERTICAL
++        val inset = (12 * resources.displayMetrics.density).toInt()
++        setPaddingRelative(inset, 0, inset, 0)
++        val search = SearchView(context).apply {
++            setIconifiedByDefault(false)
++            queryHint = hint
++            setQuery(initialQuery, false)
++            clearFocus()
++        }
++        val types = AppCompatSpinner(context).apply {
++            contentDescription = filterLabel
++            adapter = ArrayAdapter(context, android.R.layout.simple_spinner_item, options).apply {
++                setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
++            }
++            setSelection(initialFilter.ordinal)
++        }
++        addView(search, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT))
++        addView(types, LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT))
++
++        var filter = initialFilter
++        var query = initialQuery
++        types.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
++            override fun onItemSelected(parent: AdapterView<*>, view: View?, position: Int, id: Long) {
++                val selected = Filter.entries[position]
++                if (selected == filter) return
++                filter = selected
++                onChange(filter, query)
++            }
++
++            override fun onNothingSelected(parent: AdapterView<*>) = Unit
++        }
++        search.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
++            override fun onQueryTextChange(newText: String): Boolean {
++                query = newText
++                onChange(filter, query)
++                return true
++            }
++
++            override fun onQueryTextSubmit(text: String): Boolean {
++                search.clearFocus()
++                return true
++            }
++        })
++    }
++}
+diff --git a/switcher/assets/guest_start.sh b/switcher/assets/guest_start.sh
+index cea94b3..c23dd4f 100755
+--- a/switcher/assets/guest_start.sh
++++ b/switcher/assets/guest_start.sh
+@@ -2835,11 +2835,16 @@ install_try() {
+ # APK this system cannot run): said once, tried again only with a new copy.
+ final_reason() {
+     case "$1" in
+-        *UPDATE_INCOMPATIBLE*|*INVALID_APK*|*NO_MATCHING_ABIS*|*OLDER_SDK*|*PARSE_FAILED*|*NO_CERTIFICATES*|*MISSING_SPLIT*) return 0 ;;
++        *UPDATE_INCOMPATIBLE*|*INVALID_APK*|*NO_MATCHING_ABIS*|*OLDER_SDK*|*PARSE_FAILED*|*NO_CERTIFICATES*|*MISSING_SPLIT*|*ALREADY_EXISTS*) return 0 ;;
+     esac
+     return 1
+ }
+ 
++# Include system packages disabled or uninstalled for this guest user.
++guest_has_system_app() {
++    gpm root 20 list packages -s -u --user 0 "$1" 2>/dev/null | grep -Fxq "package:$1"
++}
++
+ # Installs $pkg from $d/apk. 0: installed, or the guest keeps its own newer
+ # version ($kept=1); 1: not installed and $why says why.
+ install_app() {
+@@ -2847,6 +2852,15 @@ install_app() {
+     n=0
+     for a in "$d/apk"/*.apk; do [ -f "$a" ] && [ ! -L "$a" ] && n=$((n + 1)); done
+     [ $n -gt 0 ] || { why="the copy has no APK"; return 1; }
++    if [ "$system_copy" = 1 ]; then
++        if guest_has_system_app "$pkg"; then
++            why="the guest already has this system app (ALREADY_EXISTS)"
++            return 1
++        fi
++        # Install only if absent, with the guest's ordinary application permissions.
++        install_try root -R --user 0
++        return $?
++    fi
+     vend=""
+     gpm root 20 path com.android.vending >/dev/null 2>&1 && vend="-i com.android.vending"
+     round=0
+@@ -2926,29 +2940,34 @@ restore_one() {
+     pkg=$1; stamp=$2
+     d="$BRING/$pkg"
+     why=""
++    system_copy=0
++    if [ -f "$d/system" ] && [ ! -L "$d/system" ]; then system_copy=1; fi
+     log "$pkg: starting (copy $stamp)"
+     if ! install_app; then
+         echo "$stamp $why" > "$d/failed"
+         log "$pkg: NOT brought: $why"
+         return 1
+     fi
+-    uid=$(gpm root 20 list packages -U "$pkg" 2>/dev/null | sed -n "s/^package:$pkg uid:\([0-9][0-9]*\).*/\1/p" | head -n 1)
+-    is_dec "$uid" || uid=$(stat -c %u "$CE/$pkg" 2>/dev/null)
+-    if ! is_dec "$uid" || [ "$uid" -lt 10000 ]; then
+-        why="installed, but the system gave no app uid for it"
+-        echo "$stamp $why" > "$d/failed"
+-        log "$pkg: NOT brought: $why"
+-        return 1
+-    fi
+-    if ! { restore_dir "$d/ce" "$CE/$pkg" && restore_dir "$d/de" "$DE/$pkg"; }; then
+-        echo "$stamp $why" > "$d/failed"
+-        log "$pkg: NOT brought: $why"
+-        return 1
++    if [ "$system_copy" = 0 ]; then
++        uid=$(gpm root 20 list packages -U "$pkg" 2>/dev/null | sed -n "s/^package:$pkg uid:\([0-9][0-9]*\).*/\1/p" | head -n 1)
++        is_dec "$uid" || uid=$(stat -c %u "$CE/$pkg" 2>/dev/null)
++        if ! is_dec "$uid" || [ "$uid" -lt 10000 ]; then
++            why="installed, but the system gave no app uid for it"
++            echo "$stamp $why" > "$d/failed"
++            log "$pkg: NOT brought: $why"
++            return 1
++        fi
++        if ! { restore_dir "$d/ce" "$CE/$pkg" && restore_dir "$d/de" "$DE/$pkg"; }; then
++            echo "$stamp $why" > "$d/failed"
++            log "$pkg: NOT brought: $why"
++            return 1
++        fi
+     fi
+     echo "$stamp" > "$d/applied.new" && mv -f "$d/applied.new" "$d/applied" || { log "$pkg: could not mark it applied"; return 1; }
+     rm -f "$d/failed"
+     rm -rf "$d/apk" "$d/ce" "$d/de"
+-    if [ $kept = 1 ]; then log "$pkg: ready (data restored; the newer version already here was kept; uid $uid, label $ctx)"
++    if [ "$system_copy" = 1 ]; then log "$pkg: ready (installed as a regular app)"
++    elif [ $kept = 1 ]; then log "$pkg: ready (data restored; the newer version already here was kept; uid $uid, label $ctx)"
+     else log "$pkg: ready (installed and data restored; uid $uid, label $ctx)"; fi
+     return 0
+ }
+@@ -2978,6 +2997,7 @@ if [ -s "$BRING/.forget" ] && [ ! -L "$BRING/.forget" ]; then
+         while read -r fp; do
+             is_package "$fp" || continue
+             [ -d "$BRING/$fp" ] && continue
++            guest_has_system_app "$fp" && continue
+             gpm root 20 path "$fp" >/dev/null 2>&1 || continue
+             out=$(gpm root 60 uninstall "$fp" 2>&1)
+             log "$fp: removed (taken off the list in OneOS on One UI): $(short "$out")"

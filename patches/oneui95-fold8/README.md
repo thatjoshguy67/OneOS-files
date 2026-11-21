@@ -142,3 +142,22 @@ the feature XML merge with Fold8 and donor inputs, fixture tests for scope,
 property restoration values and fallbacks, and the app's staging integrity audit. The base patched APK reached the guest's setup wizard on the Fold8.
 Touch across fold transitions, the two Home layouts, AI feature behavior,
 and density defaults on a subsequent boot still need a Fold8 trial.
+
+## Bring Apps search and filters
+
+Apply `oneos-v0.5.32.patch` and then `bring-apps-v0.5.32.patch` to upstream
+source commit `813cc976475c65dc271f1adfcd6dae566143535c`. The host picker
+and guest manager 0.14 search app labels and package names and offer User,
+System, and All app filters. The host keeps selections when the view is
+filtered. User apps still use the existing APK and data copy.
+
+System entries copy base and split APKs and use the guest's regular package
+installer. The guest keeps packages it already has. The live picker uses a
+host-owned snapshot of package paths made before handoff. Updated system APKs
+under `/data/app` use OneOS's read-only host view during a session.
+
+For the Fold8 test build, build guest manager 0.14, use
+`remove_guest_knox_stub.py` on the One UI variant, align and sign it, and
+bundle it as `OneOSGuest.apk` in the 9.5 set by its SHA-256. Rebuild the
+host with the revised set pin and updated scripts, and verify the result
+with `scripts/check-staging-apk.py`.
