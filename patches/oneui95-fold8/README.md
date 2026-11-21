@@ -183,6 +183,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 15. `oneui95-fold8-pdi-boot-v0.5.32.patch`
 16. `oneui95-fold8-rotation-v0.5.32.patch`
 17. `oneui95-fold8-tabletop-control-v0.5.32.patch`
+18. `oneui95-fold8-flex-panel-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -292,7 +293,7 @@ and Samsung's floating features.
 | Lock screen, AOD and wallpaper | The feature merge takes `LOCKSCREEN,ROTATIONAL,AOD`, the stock lid/rotatable wallpaper policy and the Fold8 camera-indicator geometry. The overlay restores the stock per-panel cutout and status-bar resources. |
 | Samsung Keyboard and half-fold | Both guest feature XMLs get the stock half-fold flag and keyboard fold UX version `81`. The framework overlay declares folded states 0 and 1, half-folded state 2 and open state 3. The guest's physical posture transitions need a device check. |
 | Rotation, continuity and window management | The donor compiles out Samsung's separate per-panel rotation, app continuity and freeform-window folding policies. These require ports of the affected call sites. The hardware state and basic fold-lock path are included. |
-| Flex Panel and tabletop | The stock framework disables the dedicated panel. The user's Flex Restore module recovers it with framework, Settings and SystemUI hooks. The 9.5 donor uses Android's `DeviceStateProviderImpl` in place of the Samsung posture provider those hooks target. The tabletop patch uses the Fold8 angle sensor for state 2 at the module's 50–135° entry threshold. The services patch restores tabletop rotation behind Samsung's existing setting. The cover Quick Settings switch writes that same setting. The native Flex Panel launch still needs a port. |
+| Flex Panel and tabletop | The stock framework disables the dedicated panel. The user's Flex Restore module recovers it with framework, Settings and SystemUI hooks. The 9.5 donor uses Android's `DeviceStateProviderImpl` in place of the Samsung posture provider those hooks target. The tabletop patch uses the Fold8 angle sensor for state 2 at the module's 50–135° entry threshold. The services patch restores tabletop rotation behind Samsung's existing setting. The cover Quick Settings switch writes that same setting. The r20 Flex Panel port pairs Samsung’s native panel with an eligible app in the half-open state. |
 | Rear-screen and dual-screen modes | The stock framework's concurrent rear-display state is absent from the guest's device-state topology. Its configuration remains a separate port. |
 | Boot animation | The guest's Samsung renderer already supports main and sub QMGs. The boot preparation validates the stock inner (2448 × 1848) and cover (1248 × 1972) QMG pairs and mounts them over the guest's media directory. The renderer and the animations still need a physical boot check. |
 
@@ -313,7 +314,7 @@ Samsung Suggestions APK visible only when its digest and the mounted
 framework digest both match. The packaged fallback needs a guest boot check.
 
 
-### Flex Mode panel port in progress
+### Flex Mode panel
 
 Stock F971BXXS3AZIJ and donor S948BXXU6ZZKN both return unsupported
 from WindowManager's Flex Panel app query and discard app-choice writes.
@@ -326,9 +327,6 @@ The getter requires Android's task-management permission. The setter requires
 permission to write secure settings. Cross-user calls require Android's
 cross-user permission.
 
-The following build inputs are for the Flex port under development. The
-installed r19 set still uses its original Settings and services payloads.
-
 - Apply `patch_fold8_flex_policy.py` to r19's `Fold8OneUI95Services.jar`
   with `scripts/patch-built-jar.sh`. Set `ANDROID_HOME` to a SDK containing
   the Android 37.0 platform and 37.0.0 build tools. The compile-time declaration
@@ -337,11 +335,21 @@ installed r19 set still uses its original Settings and services payloads.
   Use `scripts/apk-replace-dex.py` with the original S948BXXU6ZZKN Settings APK
   to package the new `classes.dex`. It enables the native Advanced features
   row and search entry and retains Continue apps on cover screen.
+- Run `patch_fold8_flex_systemui.py <donor.apk> <decoded_donor> <r19-Fold8OneUI95SystemUI.apk> <OneOS/scripts/apk-replace-dex.py> <output.apk>`.
+  It uses the guest Shell’s existing split pairing and stages the native
+  panel as the bottom app. The guest registers for the Fold8 half-open
+  posture and listens to app focus, the selected-app policy, IME and shade
+  visibility. It schedules automatic opening for apps selected in
+  Settings and exposes Samsung’s panel shortcut for other eligible apps.
+  The native remote-view path routes the shortcut through navigation and
+  taskbar. Closing the phone or unfolding clears the shortcut and
+  dismisses the panel.
 
 Fixture tests used the actual donor policy resource and covered app
 eligibility, independent user choices and failed writes. On the stock
 Fold8, isolated Android runtime probes loaded the rebuilt policy and checked
-Settings availability and search. The guest still needs the Shell launch
-path wired to its half-open state, along with split-window configuration
-and navigation behavior. Test all of these together before adding the
-candidate payloads to the staged set.
+Settings availability and search. The compiled SystemUI retained all donor
+classes, including the previous tabletop patch, and Android loaded the
+Flex Panel, split-screen and navigation classes. Hinge-triggered launch,
+native panel controls and the visible taskbar shortcut still need a
+physical guest run.

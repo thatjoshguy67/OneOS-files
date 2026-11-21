@@ -1,0 +1,47 @@
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -40,4 +40,4 @@
+ da3b8197d7d5edd7aff1cba7f198cb8517eb4ca8633975ad862dcc9f7ebf2a77  Fold8OneUI95Framework.apk
+-35525b9457bc9d19e80b1667886640e15e6c40f030a8f1389d497a38be5160aa  Fold8OneUI95SystemUI.apk
+-a31b59ee37cb6bcaab97dee4d9d26852cf14d5dc583c720b9469276144b9a48b  Fold8OneUI95Services.jar
+-79b9630d305fe6652bea51d6508e35bc292a9b3b3fce04e88d51b76933910dd8  Fold8OneUI95Settings.apk
++a4d9572f52c1bf68d5f0ebe5a4e5f16e56791af32c918892db20655baef9ad1d  Fold8OneUI95SystemUI.apk
++3ee9ea5edc75351a18de6e8b06e39735618c0c094ae271df4953a6566751712e  Fold8OneUI95Services.jar
++27348a492a137bf99a4d90a5937e01c7c06b405299886fe82d147b6cca162f7e  Fold8OneUI95Settings.apk
+diff --git a/app-android/packages/oneui95.sha256 b/app-android/packages/oneui95.sha256
+--- a/app-android/packages/oneui95.sha256
++++ b/app-android/packages/oneui95.sha256
+@@ -40,4 +40,4 @@
+ da3b8197d7d5edd7aff1cba7f198cb8517eb4ca8633975ad862dcc9f7ebf2a77  Fold8OneUI95Framework.apk
+-35525b9457bc9d19e80b1667886640e15e6c40f030a8f1389d497a38be5160aa  Fold8OneUI95SystemUI.apk
+-a31b59ee37cb6bcaab97dee4d9d26852cf14d5dc583c720b9469276144b9a48b  Fold8OneUI95Services.jar
+-79b9630d305fe6652bea51d6508e35bc292a9b3b3fce04e88d51b76933910dd8  Fold8OneUI95Settings.apk
++a4d9572f52c1bf68d5f0ebe5a4e5f16e56791af32c918892db20655baef9ad1d  Fold8OneUI95SystemUI.apk
++3ee9ea5edc75351a18de6e8b06e39735618c0c094ae271df4953a6566751712e  Fold8OneUI95Services.jar
++27348a492a137bf99a4d90a5937e01c7c06b405299886fe82d147b6cca162f7e  Fold8OneUI95Settings.apk
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -1760,9 +1760,9 @@
+ oneui95_hide_media_chip() { # <pinned SystemUI.apk> <temporary APK>
+-    [ "$($BB sha256sum "$1" | cut -d' ' -f1)" = "35525b9457bc9d19e80b1667886640e15e6c40f030a8f1389d497a38be5160aa" ] &&
++    [ "$($BB sha256sum "$1" | cut -d' ' -f1)" = "a4d9572f52c1bf68d5f0ebe5a4e5f16e56791af32c918892db20655baef9ad1d" ] &&
+         cp "$1" "$2" &&
+-        printf '\145\255\271\356' | $BB dd of="$2" bs=1 seek=88797198 conv=notrunc 2>/dev/null &&
++        printf '\337\063\047\307' | $BB dd of="$2" bs=1 seek=88797198 conv=notrunc 2>/dev/null &&
+         printf '\206\214\147\325\252\205\072\070\123\070\256\322\150\161\174\340\137\361\302\337\125\343\372\070' | $BB dd of="$2" bs=1 seek=113723616 conv=notrunc 2>/dev/null &&
+         printf '\002' | $BB dd of="$2" bs=1 seek=118344105 conv=notrunc 2>/dev/null &&
+-        printf '\145\255\271\356' | $BB dd of="$2" bs=1 seek=142357310 conv=notrunc 2>/dev/null &&
+-        [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "f2194d86a94cb9e00034a26a4b1532fb2d53e4134faac9367057fa7f59a1f94e" ]
++        printf '\337\063\047\307' | $BB dd of="$2" bs=1 seek=142467902 conv=notrunc 2>/dev/null &&
++        [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "66ee3017f6416293b5e2e85bcdfaca72ce8b47ba9062637566dce8a3f286dc7a" ]
+ }
+diff --git a/switcher/assets/guest_start.sh b/switcher/assets/guest_start.sh
+--- a/switcher/assets/guest_start.sh
++++ b/switcher/assets/guest_start.sh
+@@ -2018,3 +2018,3 @@
+    [ ! -L /data/.oneui95-fold8-secondary-home-temporary ] &&
+-   [ "$($BB sha256sum /system/framework/services.jar | cut -d' ' -f1)" = "a31b59ee37cb6bcaab97dee4d9d26852cf14d5dc583c720b9469276144b9a48b" ]; then
++   [ "$($BB sha256sum /system/framework/services.jar | cut -d' ' -f1)" = "3ee9ea5edc75351a18de6e8b06e39735618c0c094ae271df4953a6566751712e" ]; then
+     FOLD8_RESTORE_DEX_HOME=1

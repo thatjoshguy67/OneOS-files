@@ -303,7 +303,7 @@ def remove_moved_classes(dex, header, expected_classes):
             moved[offset] = data_start + len(data)
             data.extend(dex[offset:stop])
         offset = stop
-    if kept_offsets - moved.keys() or offset != data_limit:
+    if kept_offsets - moved.keys() or any(dex[offset:data_limit]):
         raise ValueError("A class points outside its logical DEX class-data section")
 
     for row in kept_rows:
@@ -318,9 +318,9 @@ def remove_moved_classes(dex, header, expected_classes):
     struct.pack_into("<I", dex, header+8, zlib.adler32(dex[header+12:end]))
 
 
-def append_dex(base, rotation_dex, destination):
+def append_dex(base, added_dex, destination):
     data = base.read_bytes()
-    new_code = rotation_dex.read_bytes()
+    new_code = added_dex.read_bytes()
     if not data[-22:].startswith(b"PK\x05\x06"):
         raise ValueError("Unexpected SystemUI ZIP layout")
     disk, cd_disk, count_disk, count, cd_size, cd_start, comment = struct.unpack_from("<HHHHIIH", data, len(data)-18)
@@ -331,14 +331,16 @@ def append_dex(base, rotation_dex, destination):
     block_length = struct.unpack_from("<Q", data, cd_start-24)[0] + 8
     sig_start = cd_start-block_length
     with zipfile.ZipFile(base) as apk:
-        if [n for n in apk.namelist() if n.startswith("classes") and n.endswith(".dex")] != ["classes.dex"]:
-            raise ValueError("Expected a single DEX container")
+        dex_entries = [name for name in apk.namelist() if name.startswith("classes") and name.endswith(".dex")]
+    expected = ["classes.dex", *(f"classes{n}.dex" for n in range(2, len(dex_entries) + 1))]
+    if not dex_entries or dex_entries != expected:
+        raise ValueError("Expected consecutive SystemUI DEX entries")
     if len(new_code) % 4 or new_code[:4] != b"dex\n":
         raise ValueError("Expected an aligned rotation detail DEX")
 
     payload = io.BytesIO()
     with zipfile.ZipFile(payload, "w") as extra:
-        entry = zipfile.ZipInfo("classes2.dex", date_time=(2008, 1, 1, 0, 0, 0))
+        entry = zipfile.ZipInfo(f"classes{len(dex_entries) + 1}.dex", date_time=(2008, 1, 1, 0, 0, 0))
         block_align = 4096 if sig_start % 4096 == 0 else 4
         padding = (-(sig_start + 30 + len(entry.filename) + 4 + len(new_code))) % block_align
         entry.extra = struct.pack("<HH", 0xcafe, padding) + bytes(padding)
