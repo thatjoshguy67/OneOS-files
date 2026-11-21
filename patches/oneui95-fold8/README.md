@@ -5,7 +5,7 @@ This patch targets OneOS 0.5.32, profile `f8`, and the S26 Ultra GSI
 `82ddc8561a2687f041c2820a0d910f266b3b71753582a65ebff0cec7e8d0bbe4`.
 
 At the time of this rebase, the upstream 0.5.32 Git tag still pointed to
-the 0.5.31 source commit (`5a0e8c3`). The 0.5.32 patch uses the two
+the 0.5.31 source commit (`5a0e8c3`). The 0.5.32 patch uses the three
 session scripts shipped in the official 0.5.32 APK as its source base.
 
 ## Boot recovery
@@ -57,18 +57,31 @@ for a new trial.
   when the GSI includes Vex Scanner. This leaves app installation, scanner
   models, service eligibility and CSC/account checks to the native apps.
 
+## Fold8 display density
+
+The first physical boot completed in the Samsung setup wizard with both
+panels reporting 213 dpi. Host One UI recorded 420 dpi before the switch.
+A live WindowManager override to 420 verified on both panels. The startup
+patch now seeds per-panel density defaults before system_server starts and
+preserves an existing guest override. The fixture tests cover unique IDs,
+port-based IDs, missing native density and existing user choices. The
+startup patch needs a physical boot test. Samsung's boot animation sizing
+and routing are separate from WindowManager density.
+
 ## Build and verification
 
-For 0.5.32, extract `guest_prepare.sh` and `guest_props.sh` by hash from
+For 0.5.32, extract `guest_prepare.sh`, `guest_props.sh` and
+`guest_start.sh` by hash from
 the official APK's `assets/oneos/sets/scripts.sha256` and
 `assets/oneos/files/`. Put them in `switcher/assets/`, then apply the patch:
 
 ```sh
 git apply /path/to/OneOS-files/patches/oneui95-fold8/oneos-v0.5.32.patch
 python3 /path/to/OneOS-files/patches/oneui95-fold8/test_features.py .
+python3 /path/to/OneOS-files/patches/oneui95-fold8/test_density.py .
 ```
 
-The 0.5.32 APK was rebuilt from the official APK with the two patched
+The 0.5.32 APK was rebuilt from the official APK with the three patched
 scripts, updated content hashes and size index, and regenerated script
 manifest pins in both BuildConfig and AppAssets. The other release assets
 and the root script were retained. The official 9.5 set still carries the
@@ -91,5 +104,6 @@ uses the official release's boot-fix payloads and app guards.
 
 Validation covers the exact Home APK's feature checks, the pinned framework fix,
 the feature XML merge with Fold8 and donor inputs, fixture tests for scope,
-property restoration values and fallbacks, and the app's staging integrity audit. Boot, touch, the two Home
-layouts, and AI feature behavior still need a Fold8 trial.
+property restoration values and fallbacks, and the app's staging integrity audit. The base patched APK reached the guest's setup wizard on the Fold8.
+Touch across fold transitions, the two Home layouts, AI feature behavior,
+and density defaults on a subsequent boot still need a Fold8 trial.

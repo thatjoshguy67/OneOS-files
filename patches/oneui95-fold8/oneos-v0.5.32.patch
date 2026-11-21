@@ -133,3 +133,71 @@ index 8240786..9adbe6b 100644
          g=$(sed -n 's/^ro.product.system.model=//p' "$ROOTFS/system/build.prop" 2>/dev/null | tail -n 1)
          case "$g" in SM-[A-Z0-9]*) ;; *) g="" ;; esac
          if [ -n "$g" ]; then
+diff --git a/switcher/assets/guest_start.sh b/switcher/assets/guest_start.sh
+index cea94b3..a45ec3f 100755
+--- a/switcher/assets/guest_start.sh
++++ b/switcher/assets/guest_start.sh
+@@ -585,6 +585,63 @@ LAYOUT
+         # The inner panel's id for the UI activator's density and fold line
+         # (oneos_switch.sh, run 44).
+         echo "$INNER" > /data/oneos_inner_display; chmod 644 /data/oneos_inner_display
++        # Fold8 One UI 9.5 reports 213 physical dpi for both displays even
++        # when ro.sf.lcd_density is 420. Set a guest WindowManager default
++        # for each physical panel before system_server reads its settings.
++        if [ "${ONEOS_PROFILE:-}" = f8 ] && [ "${ONEOS_GUEST_FORM:-}" = fold ] &&
++           grep -qx 'ro.build.PDA=S948BXXU6ZZKN' /system/build.prop 2>/dev/null; then
++            f8_density=$(getprop ro.sf.lcd_density)
++            case "$f8_density" in
++                [2-6][0-9][0-9]) [ "$f8_density" -ge 240 ] && [ "$f8_density" -le 640 ] || f8_density=420 ;;
++                *) f8_density=420 ;;
++            esac
++            f8_dset=/data/system/display_settings.xml
++            if [ ! -L "$f8_dset" ] && [ ! -L /data/system ] &&
++               f8_temp=$(mktemp -d /data/system/oneos-density.XXXXXX); then
++                f8_input="$f8_temp/input"
++                f8_output="$f8_temp/output"
++                if [ ! -s "$f8_dset" ]; then
++                    printf '%s\n' '<?xml version="1.0" encoding="utf-8"?>' '<display-settings>' '</display-settings>' > "$f8_input"
++                elif [ "$(head -c 3 "$f8_dset")" = ABX ]; then
++                    abx2xml "$f8_dset" "$f8_input" 2>/dev/null || : > "$f8_input"
++                else
++                    cat "$f8_dset" > "$f8_input"
++                fi
++                f8_id_type=$(sed -n 's/.*<config identifier="\([0-9]*\)".*/\1/p' "$f8_input" /vendor/etc/display_settings.xml 2>/dev/null | head -n 1)
++                f8_inner="local:$INNER"; f8_cover="local:$COVER"
++                if [ "$f8_id_type" = 1 ]; then
++                    f8_inner="port:$((INNER % 256))"; f8_cover="port:$((COVER % 256))"
++                fi
++                if awk -v inner="$f8_inner" -v cover="$f8_cover" -v density="$f8_density" '
++                    BEGIN { panels[1] = inner; panels[2] = cover }
++                    /<display[[:space:]]/ {
++                        for (i = 1; i <= 2; i++) {
++                            key = "name=\"" panels[i] "\""
++                            if (!index($0, key)) continue
++                            seen[i] = 1
++                            if ($0 !~ /forcedDensity(Ratio)?=/)
++                                sub(key, key " forcedDensity=\"" density "\"")
++                        }
++                    }
++                    /<\/display-settings>/ {
++                        for (i = 1; i <= 2; i++)
++                            if (!seen[i]) print "    <display name=\"" panels[i] "\" forcedDensity=\"" density "\" />"
++                        closed = 1
++                    }
++                    { print }
++                    END { if (!closed) exit 1 }
++                ' "$f8_input" > "$f8_output" &&
++                   chown 1000:1000 "$f8_output" && chmod 600 "$f8_output" &&
++                   "$BB" chcon u:object_r:system_data_file:s0 "$f8_output" &&
++                   mv -f "$f8_output" "$f8_dset"; then
++                    echo "[Pivoted Root] Fold8 One UI 9.5: $f8_density dpi defaults for $f8_inner and $f8_cover"
++                else
++                    echo "[Pivoted Root] Fold8 One UI 9.5: display density defaults not written"
++                fi
++                rm -f "$f8_input" "$f8_output"
++                rmdir "$f8_temp"
++            fi
++        fi
+         # vivo in fold mode 1 (ro.vivo.device.type=foldable): the inner panel as vivo's
+         # main panel (patches/vivo_guards.py, OneOSVivoPrimaryDisplay). SurfaceFlinger
+         # named the cover primary at boot and the inner panel's brightness never
