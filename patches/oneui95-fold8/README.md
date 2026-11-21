@@ -38,7 +38,14 @@ for a new trial.
 - The guest also takes the Fold8's half-fold support, taskbar flag, lid-aware
   lock-screen wallpaper styles and fold-specific keyboard version. It keeps
   the real Fold8 model and uses the existing OneOS paths for panel IDs, device
-  states and touch. The guest's One UI version still reports 9.5.
+  states and touch. The Fold8 already supplies `ro.config.fold_disp=2448,1848,1248,1972`,
+  `ro.product.first_api_level=37` and `ro.build.characteristics=phone`.
+- For this guest session, `ro.build.version.sep` takes the donor value
+  `180500`. The 9.5 framework reads this property for
+  `Build.VERSION.SEM_PLATFORM_INT`, and One UI Home reads it directly. A
+  version of `180000` would leave some 9.5 checks on the One UI 9.0 path,
+  including the version check in Vex OCR. OneOS saves and restores the host
+  value with its existing session override mechanism.
 - The guest reports AI version 20271 or higher in both Samsung feature XMLs.
   The research found generation checks for Browser, AI Plan, SmartThings
   notification summaries and selected Phone/Call Assist paths. The system also
@@ -58,13 +65,13 @@ cd app-android
 ./gradlew :app:assembleFullDebug
 ```
 
-Use a release-signed build to update an existing release installation. The
-0.5.31 contributor channel accepts only its listed package payload roles.
+Android normally requires matching signing certificates for an in-place
+update. The 0.5.31 contributor channel accepts only its listed package payload roles.
 These two changes go through the app's hashed session scripts and require a
 new app build. This patch uses the original OneOS 0.5.31 boot-fix payloads and
 app guards.
 
 Validation covers the exact Home APK's feature checks, the pinned framework fix,
-the feature XML merge with Fold8 and donor inputs, fixture tests for scope and
-fallbacks, and the app's staging integrity audit. Boot, touch, the two Home
+the feature XML merge with Fold8 and donor inputs, fixture tests for scope,
+property restoration values and fallbacks, and the app's staging integrity audit. Boot, touch, the two Home
 layouts, and AI feature behavior still need a Fold8 trial.

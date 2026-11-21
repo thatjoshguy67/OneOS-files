@@ -113,8 +113,68 @@ class Fold8FeaturesTest(unittest.TestCase):
                 self.assertIn("could not apply", log)
 
 
+class BuildPropertiesTest(unittest.TestCase):
+    def run_properties(self, *, profile="f8", form="fold", donor="S948BXXU6ZZKN",
+                       sep="180500"):
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            rootfs = directory / "rootfs"
+            (rootfs / "system").mkdir(parents=True)
+            (rootfs / "system/build.prop").write_text(
+                f"ro.build.PDA={donor}\nro.build.version.oneui=90500\n"
+                f"ro.build.version.sem=3702\nro.build.version.sep={sep}\n"
+                "ro.product.system.model=SM-S948B\n"
+            )
+            overrides = directory / "overrides"
+            writes = directory / "writes"
+            prelude = r"""
+getprop() {
+    case "$1" in
+        ro.build.version.oneui) echo 90000 ;;
+        ro.build.version.sem) echo 3701 ;;
+        ro.build.version.sep) echo 180000 ;;
+        ro.product.vendor.model|ro.product.model|ro.boot.em.model) echo SM-F971B ;;
+        "") echo '[ro.product.model]: [SM-F971B]' ;;
+    esac
+}
+resetprop() { printf '%s=%s\n' "$2" "$3" >> "$WRITES"; }
+RP=resetprop
+"""
+            subprocess.run(
+                ["sh", "-c", prelude + PROPERTIES], check=True, capture_output=True,
+                env={**os.environ, "ROOTFS": str(rootfs), "OVR": str(overrides),
+                     "WRITES": str(writes), "ONEOS_PROFILE": profile, "ONEOS_GUEST_FORM": form},
+            )
+            return (set(writes.read_text().splitlines()),
+                    set(overrides.read_text().splitlines()))
+
+    def test_sep_uses_donor_and_saves_host_value(self):
+        writes, overrides = self.run_properties()
+        self.assertIn("ro.build.version.sep=180500", writes)
+        self.assertIn("ro.build.version.sep=180000", overrides)
+        self.assertIn("ro.build.version.oneui=90500", writes)
+        self.assertIn("ro.build.version.sem=3702", writes)
+        self.assertFalse(any("model=" in row for row in writes))
+
+    def test_other_targets_keep_the_existing_model_and_version_paths(self):
+        for options in ({"profile": "f8u"}, {"form": "phone"}, {"donor": "S948BXXU6ZZKO"}):
+            with self.subTest(options=options):
+                writes, overrides = self.run_properties(**options)
+                self.assertFalse(any("ro.build.version.sep=" in row for row in writes | overrides))
+                self.assertIn("ro.product.model=SM-S948B", writes)
+
+    def test_missing_or_malformed_sep_is_ignored(self):
+        for value in ("", "18.5", "unknown"):
+            with self.subTest(value=value):
+                writes, overrides = self.run_properties(sep=value)
+                self.assertFalse(any("ro.build.version.sep=" in row for row in writes | overrides))
+
+
 if __name__ == "__main__":
-    source = Path(sys.argv.pop(1)) / "switcher/assets/guest_prepare.sh"
-    MERGE = source.read_text().split("# The S26 Ultra donor does not describe", 1)[1]
+    assets = Path(sys.argv.pop(1)) / "switcher/assets"
+    MERGE = (assets / "guest_prepare.sh").read_text().split("# The S26 Ultra donor does not describe", 1)[1]
     MERGE = MERGE.split("# The phone's eSIM chip", 1)[0].split("\n", 1)[1]
+    PROPERTIES = (assets / "guest_props.sh").read_text()
+    PROPERTIES = PROPERTIES.split('    oneui_image_model=', 1)[1]
+    PROPERTIES = '    oneui_image_model=' + PROPERTIES.split('    # No isolated compilation', 1)[0]
     unittest.main()
