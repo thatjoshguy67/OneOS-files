@@ -180,6 +180,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 12. `oneui95-fold8-panel-parity-v0.5.32.patch`
 13. `oneui95-fold8-taskbar-v0.5.32.patch`
 14. `oneui95-fold8-tabletop-v0.5.32.patch`
+15. `oneui95-fold8-pdi-boot-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -281,6 +282,12 @@ from the donor, and the existing Now Bar notification test setting in the
 guest. Real audio processing and notification behavior require on-device
 verification.
 
-PDI's imported APK needs privileged permissions and Samsung Pass storage.
-The guest lacks a separate Samsung Pass storage backend, so PDI remains
-disabled in the existing stage.
+PDI 7.4.01.9 uses its own app-private storage fallback when the guest
+framework reports Samsung Keep unavailable to the Fold8's Moneta process.
+The process, version and model checks leave other callers on the original
+framework path. To reproduce the framework payload, apply
+`switcher/patches/oneui95_fold8_pdi_framework.py` to the original guarded
+`framework_patched.jar` and replace its `classes7.dex`. Package the resulting
+JAR with the updated guard manifest. Boot preparation keeps the donor's
+Samsung Suggestions APK visible only when its digest and the mounted
+framework digest both match. The packaged fallback needs a guest boot check.
