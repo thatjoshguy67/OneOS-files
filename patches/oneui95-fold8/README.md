@@ -182,6 +182,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 14. `oneui95-fold8-tabletop-v0.5.32.patch`
 15. `oneui95-fold8-pdi-boot-v0.5.32.patch`
 16. `oneui95-fold8-rotation-v0.5.32.patch`
+17. `oneui95-fold8-tabletop-control-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -216,6 +217,19 @@ Build and embed these four assets in the `oneui95` set:
   uses the same check. SystemUI hands the navigation window to Launcher
   using its native remove and restore path because the phone donor lacks
   the Fold window manager's visibility arbitration.
+  With Apktool 3.0.3, decode the original donor and run
+  `patch_fold8_tabletop_systemui.py <donor.apk> <decoded_donor> <patched.apk> <OneOS/scripts/apk-replace-dex.py> <output.apk>`
+  on the Fold8 SystemUI built above. Use the output as the packaged
+  Fold8 SystemUI. The patch takes four affected classes out of the
+  original DEX container and adds their rebuilt definitions in a
+  secondary DEX. It restores stock Quick Settings visibility for
+  **Auto rotate when partially folded** on the cover display. The switch
+  uses the per-user `tabletop_rotation` system setting, with the stock
+  WindowManager default when the setting is absent. The Fold8 runtime
+  loaded the rebuilt classes and verified preference registration and
+  the view model's display and checked states with an injected fold
+  state. Persistence in the guest and real hinge transitions need a
+  guest boot check.
 - `Fold8OneUI95Services.jar`. Run OneOS's `scripts/patch-built-jar.sh` with the
   guarded `services_patched.jar` pinned at
   `6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca`,
@@ -278,7 +292,7 @@ and Samsung's floating features.
 | Lock screen, AOD and wallpaper | The feature merge takes `LOCKSCREEN,ROTATIONAL,AOD`, the stock lid/rotatable wallpaper policy and the Fold8 camera-indicator geometry. The overlay restores the stock per-panel cutout and status-bar resources. |
 | Samsung Keyboard and half-fold | Both guest feature XMLs get the stock half-fold flag and keyboard fold UX version `81`. The framework overlay declares folded states 0 and 1, half-folded state 2 and open state 3. The guest's physical posture transitions need a device check. |
 | Rotation, continuity and window management | The donor compiles out Samsung's separate per-panel rotation, app continuity and freeform-window folding policies. These require ports of the affected call sites. The hardware state and basic fold-lock path are included. |
-| Flex Panel and tabletop | The stock framework disables the dedicated panel. The user's Flex Restore module recovers it with framework, Settings and SystemUI hooks. The 9.5 donor uses Android's `DeviceStateProviderImpl` in place of the Samsung posture provider those hooks target. The tabletop patch uses the Fold8 angle sensor for state 2 at the module's 50–135° entry threshold. The services patch restores tabletop rotation behind Samsung's existing setting. Quick Settings visibility and the native Flex Panel launch still need ports. |
+| Flex Panel and tabletop | The stock framework disables the dedicated panel. The user's Flex Restore module recovers it with framework, Settings and SystemUI hooks. The 9.5 donor uses Android's `DeviceStateProviderImpl` in place of the Samsung posture provider those hooks target. The tabletop patch uses the Fold8 angle sensor for state 2 at the module's 50–135° entry threshold. The services patch restores tabletop rotation behind Samsung's existing setting. The cover Quick Settings switch writes that same setting. The native Flex Panel launch still needs a port. |
 | Rear-screen and dual-screen modes | The stock framework's concurrent rear-display state is absent from the guest's device-state topology. Its configuration remains a separate port. |
 | Boot animation | The guest's Samsung renderer already supports main and sub QMGs. The boot preparation validates the stock inner (2448 × 1848) and cover (1248 × 1972) QMG pairs and mounts them over the guest's media directory. The renderer and the animations still need a physical boot check. |
 
