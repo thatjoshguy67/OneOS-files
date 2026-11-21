@@ -1,0 +1,24 @@
+diff --git a/app-android/packages/oneui95.sha256 b/app-android/packages/oneui95.sha256
+--- a/app-android/packages/oneui95.sha256
++++ b/app-android/packages/oneui95.sha256
+@@ -41,3 +41,3 @@
+ c0feb7be90fdaeb8e5303e4dcfd1eea78d17c12f4b79ca158a5ec393008e34eb  Fold8OneUI95SystemUI.apk
+-159fab11472e72f62df54fa1048c953fb17bd6c2a847e77d7a88a9e705f37081  Fold8OneUI95Services.jar
++a31b59ee37cb6bcaab97dee4d9d26852cf14d5dc583c720b9469276144b9a48b  Fold8OneUI95Services.jar
+ 79b9630d305fe6652bea51d6508e35bc292a9b3b3fce04e88d51b76933910dd8  Fold8OneUI95Settings.apk
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -41,3 +41,3 @@
+ c0feb7be90fdaeb8e5303e4dcfd1eea78d17c12f4b79ca158a5ec393008e34eb  Fold8OneUI95SystemUI.apk
+-159fab11472e72f62df54fa1048c953fb17bd6c2a847e77d7a88a9e705f37081  Fold8OneUI95Services.jar
++a31b59ee37cb6bcaab97dee4d9d26852cf14d5dc583c720b9469276144b9a48b  Fold8OneUI95Services.jar
+ 79b9630d305fe6652bea51d6508e35bc292a9b3b3fce04e88d51b76933910dd8  Fold8OneUI95Settings.apk
+diff --git a/switcher/assets/guest_start.sh b/switcher/assets/guest_start.sh
+--- a/switcher/assets/guest_start.sh
++++ b/switcher/assets/guest_start.sh
+@@ -2018,3 +2018,3 @@
+    [ ! -L /data/.oneui95-fold8-secondary-home-temporary ] &&
+-   [ "$($BB sha256sum /system/framework/services.jar | cut -d' ' -f1)" = "159fab11472e72f62df54fa1048c953fb17bd6c2a847e77d7a88a9e705f37081" ]; then
++   [ "$($BB sha256sum /system/framework/services.jar | cut -d' ' -f1)" = "a31b59ee37cb6bcaab97dee4d9d26852cf14d5dc583c720b9469276144b9a48b" ]; then
+     FOLD8_RESTORE_DEX_HOME=1
