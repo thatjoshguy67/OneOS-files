@@ -173,6 +173,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 5. `oneui95-fold8-ui-modes-v0.5.32.patch`
 6. `oneui95-fold8-staging-v0.5.32.patch`
 7. `oneui95-feature-flags-v0.5.32.patch`
+8. `oneui95-feature-entry-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's mirroring setting from the host once. Other Home
@@ -220,8 +221,8 @@ setting.
 
 ### Feature flags
 
-The system detail page shows **Feature flags** on the Fold8 One UI 9.5
-entry. **Dynamic Island player** is on by default. The choice is saved per
+**Feature flags** appears on the Fold8 One UI 9.5 card and near the top
+of its system detail page. **Dynamic Island player** is on by default. The choice is saved per
 system and takes effect when you next start the guest. When the player is
 off, the boot script derives the media-chip variant from the pinned Fold8
 SystemUI APK and verifies the result before mounting it. The SystemUI

@@ -1,0 +1,131 @@
+diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
+--- a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
++++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/EnvironmentActivity.kt
+@@ -15,6 +15,7 @@
+ import androidx.appcompat.app.AppCompatActivity
+ import androidx.appcompat.widget.Toolbar
+ import androidx.core.widget.NestedScrollView
++import com.fahadali.oneos.session.GuestFeatures
+ import com.fahadali.oneos.session.GuestRuntimeStore
+ import com.fahadali.oneos.session.PatchChannels
+ import com.fahadali.oneos.R
+@@ -212,6 +213,13 @@
+             // Once tapped the row goes and the text above says "Stopping" (11-10: nothing changed until the save had ended).
+             if (logs.busy && !logs.recovering && !logs.stopping) Cards.row(busyCard, R.drawable.ic_oneos_row_last_time, getString(R.string.logs_skip), getString(R.string.logs_skip_summary)) {
+                 com.fahadali.oneos.session.LogJob.skip()
++            }
++        }
++        val patchProfile = currentFacts?.let { com.fahadali.oneos.core.model.Profiles.resolve(it).profile }
++        val features = GuestFeatures.forSystem(patchProfile?.id, image.id)
++        if (features.isNotEmpty()) {
++            PrebootCards.row(PrebootCards.section(column), getString(R.string.system_features), chevron = true) {
++                showGuestFeatureFlags(this, image.id, features)
+             }
+         }
+         // The 20dp card gap below the busy card above (it sat glued to this one, 11-14).
+@@ -300,7 +308,6 @@
+                 surface.addView(content, LinearLayout.LayoutParams(-1, -2))
+             }
+         }
+-        val patchProfile = currentFacts?.let { com.fahadali.oneos.core.model.Profiles.resolve(it).profile }
+         if (!preview && patchProfile != null) {
+             val key = "${patchProfile.id}:${image.id}"
+             if (patchDiscoveryKey != key) {
+diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/GuestFeatureDialog.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/GuestFeatureDialog.kt
+new file mode 100644
+--- /dev/null
++++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/GuestFeatureDialog.kt
+@@ -0,0 +1,19 @@
++package com.fahadali.oneos.ui
++
++import android.content.Context
++import androidx.appcompat.app.AlertDialog
++import com.fahadali.oneos.R
++import com.fahadali.oneos.session.GuestFeatures
++
++internal fun showGuestFeatureFlags(ctx: Context, imageId: String, flags: List<GuestFeatures.Flag>) {
++    AlertDialog.Builder(ctx)
++        .setTitle(R.string.system_features)
++        .setMultiChoiceItems(
++            flags.map { ctx.getString(it.label) }.toTypedArray(),
++            flags.map { GuestFeatures.enabled(ctx, imageId, it) }.toBooleanArray(),
++        ) { _, index, checked ->
++            GuestFeatures.setEnabled(ctx, imageId, flags[index], checked)
++        }
++        .setPositiveButton(android.R.string.ok, null)
++        .show()
++}
+diff --git a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/SystemsActivity.kt b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/SystemsActivity.kt
+--- a/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/SystemsActivity.kt
++++ b/app-android/app/src/full/kotlin/com/fahadali/oneos/ui/SystemsActivity.kt
+@@ -598,6 +598,13 @@
+             return v
+         }
+         val primary = v.findViewById<Button>(R.id.systems_primary)
++        val features = GuestFeatures.forSystem(p?.id, image.id)
++        if (features.isNotEmpty()) {
++            v.findViewById<Button>(R.id.systems_features).apply {
++                visibility = View.VISIBLE
++                setOnClickListener { showGuestFeatureFlags(ctx, image.id, features) }
++            }
++        }
+         // The menu follows the card's state (0.5.09): the set-up system offers Start fresh and Remove, a saved
+         // copy offers its delete, a system not set up the download and file items. A long press opens it too.
+         fun showMenu(anchor: View) {
+@@ -607,19 +614,9 @@
+                 fun details() = menu.add(R.string.catalog_details).setOnMenuItemClickListener {
+                     AlertDialog.Builder(ctx).setTitle(image.displayName).setMessage(image.blurb + "\n\n" + image.variant.orEmpty() + "\n" + Units.bytes(image.gzBytes)).setPositiveButton(android.R.string.ok, null).show(); true
+                 }
+-                val features = GuestFeatures.forSystem(p?.id, image.id)
+                 if (features.isNotEmpty()) {
+                     menu.add(R.string.system_features).setOnMenuItemClickListener {
+-                        AlertDialog.Builder(ctx)
+-                            .setTitle(R.string.system_features)
+-                            .setMultiChoiceItems(
+-                                features.map { ctx.getString(it.label) }.toTypedArray(),
+-                                features.map { GuestFeatures.enabled(ctx, image.id, it) }.toBooleanArray(),
+-                            ) { _, index, checked ->
+-                                GuestFeatures.setEnabled(ctx, image.id, features[index], checked)
+-                            }
+-                            .setPositiveButton(android.R.string.ok, null)
+-                            .show()
++                        showGuestFeatureFlags(ctx, image.id, features)
+                         true
+                     }
+                 }
+diff --git a/app-android/app/src/full/res/layout/systems_card.xml b/app-android/app/src/full/res/layout/systems_card.xml
+--- a/app-android/app/src/full/res/layout/systems_card.xml
++++ b/app-android/app/src/full/res/layout/systems_card.xml
+@@ -3,5 +3,31 @@
+     <com.fahadali.oneos.ui.OsArtworkView android:id="@+id/systems_artwork" android:layout_width="match_parent" android:layout_height="match_parent" />
+     <TextView android:id="@+id/systems_badge" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_margin="12dp" android:layout_marginEnd="72dp" android:maxLines="1" android:ellipsize="end" android:paddingHorizontal="16dp" android:paddingVertical="12dp" android:background="@drawable/catalog_overlay_bg" android:textColor="#FFFFFF" android:textSize="16sp" android:textStyle="bold" />
+     <androidx.appcompat.widget.AppCompatImageButton android:id="@+id/systems_more" android:layout_width="48dp" android:layout_height="48dp" android:layout_gravity="end|top" android:layout_margin="12dp" android:background="@drawable/catalog_overlay_bg" android:src="@drawable/ic_catalog_more" android:contentDescription="@string/catalog_more" />
+-    <androidx.appcompat.widget.AppCompatButton android:id="@+id/systems_primary" style="@style/OneUI.ContainedButton" android:theme="@style/OneUI.ContainedButtonTheme" android:layout_width="wrap_content" android:layout_height="wrap_content" android:minWidth="168dp" android:layout_gravity="bottom|center_horizontal" android:layout_margin="16dp" android:text="@string/catalog_set_up" />
++    <LinearLayout
++        android:layout_width="wrap_content"
++        android:layout_height="wrap_content"
++        android:layout_gravity="bottom|center_horizontal"
++        android:layout_margin="16dp"
++        android:gravity="center_horizontal"
++        android:orientation="vertical">
++
++        <androidx.appcompat.widget.AppCompatButton
++            android:id="@+id/systems_features"
++            style="@style/OneUI.ContainedButton"
++            android:theme="@style/OneUI.ContainedButtonTheme"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:minWidth="168dp"
++            android:text="@string/system_features"
++            android:visibility="gone" />
++
++        <androidx.appcompat.widget.AppCompatButton
++            android:id="@+id/systems_primary"
++            style="@style/OneUI.ContainedButton"
++            android:theme="@style/OneUI.ContainedButtonTheme"
++            android:layout_width="wrap_content"
++            android:layout_height="wrap_content"
++            android:minWidth="168dp"
++            android:text="@string/catalog_set_up" />
++    </LinearLayout>
+ </FrameLayout>
