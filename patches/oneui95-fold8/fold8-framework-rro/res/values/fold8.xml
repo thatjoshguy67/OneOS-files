@@ -1,0 +1,15 @@
+<resources>
+    <string name="config_mainBuiltInDisplayCutout" translatable="false"></string>
+    <string name="config_mainBuiltInDisplayCutoutForUDC" translatable="false">M 243.047619047619,0 M 243.047619047619,6.857142857142857 a 14.85714285714286,14.85714285714286 0 1,0 0,29.71428571428571 a 14.85714285714286,14.85714285714286 0 1,0 0,-29.71428571428571 z @dp</string>
+    <string name="config_subBuiltInDisplayCutout" translatable="false">M 0,0 H -13.33333333333333 V 39.61904761904762 H 13.33333333333333 V 0 H 0 Z @dp</string>
+    <string name="config_secondaryBuiltInDisplayCutout" translatable="false">@string/config_subBuiltInDisplayCutout</string>
+    <integer-array name="config_foldedDeviceStates"><item>0</item><item>1</item></integer-array>
+    <integer-array name="config_halfFoldedDeviceStates"><item>2</item></integer-array>
+    <integer-array name="config_openDeviceStates"><item>3</item></integer-array>
+    <dimen name="status_bar_height_landscape">30dp</dimen>
+    <dimen name="status_bar_height_portrait">110px</dimen>
+    <dimen name="status_bar_camera_bottom_margin">10px</dimen>
+    <dimen name="status_bar_camera_side_padding">16px</dimen>
+    <dimen name="status_bar_camera_top_margin">23px</dimen>
+    <dimen name="status_bar_indicator_corner_padding">32px</dimen>
+</resources>

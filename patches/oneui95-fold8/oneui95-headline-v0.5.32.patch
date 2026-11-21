@@ -1,0 +1,28 @@
+--- a/switcher/assets/guest_props.sh
++++ b/switcher/assets/guest_props.sh
+@@ -1705,6 +1705,25 @@
+         oneui_version_props="$oneui_version_props ro.build.version.sep"
+         oneui_image_model=0
+         echo "guest_props: keeping Fold8 model for One UI 9.5"
++        # SystemUI reads this debug override when its application starts.
++        # Use the session property journal so the host value returns with One UI.
++        if [ "${ONEOS_ONEUI_HEADLINE:-1}" = 1 ]; then
++            key=persist.debug.sysui.headline
++            h=$(getprop "$key")
++            if [ "$h" != 1 ]; then
++                if getprop | grep -qF "[$key]: ["; then
++                    printf '%s=%s\n' "$key" "$h" >> "$OVR"
++                else
++                    printf '%s\n' "$key" >> "$ADDED"
++                fi &&
++                    "$RP" -n "$key" 1 2>/dev/null
++            fi
++            if [ "$(getprop "$key")" = 1 ]; then
++                echo "guest_props: $key=1 for the One UI 9.5 session"
++            else
++                echo "guest_props: could not enable One UI 9.5 Status Bar Headline"
++            fi
++        fi
+     fi
+     # One UI's own version from a One UI image (0.5.22, One UI 9.5 on One UI 9.0 phones): the guest
+     # framework is the image's, so Settings, Samsung's apps and feature checks read its version,

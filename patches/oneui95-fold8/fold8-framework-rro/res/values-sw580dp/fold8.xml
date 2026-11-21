@@ -1,0 +1,8 @@
+<resources>
+    <dimen name="status_bar_height_portrait">39dp</dimen>
+    <dimen name="status_bar_height_landscape">105px</dimen>
+    <dimen name="status_bar_camera_top_margin">18px</dimen>
+    <dimen name="status_bar_camera_bottom_margin">10px</dimen>
+    <dimen name="status_bar_camera_side_padding">16px</dimen>
+    <dimen name="status_bar_indicator_corner_padding">32px</dimen>
+</resources>

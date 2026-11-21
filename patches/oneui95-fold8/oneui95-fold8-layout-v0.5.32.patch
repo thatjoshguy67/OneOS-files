@@ -1,0 +1,224 @@
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -452,6 +452,11 @@
+ # UI's /product (see host_part_mounts at the top).
+ GUEST_PRODUCT="$ROOTFS/system/product"
+ [ -L "$GUEST_PRODUCT" ] && GUEST_PRODUCT="$ROOTFS/product"
++ONEUI95_FOLD8=0
++if [ "${ONEOS_PROFILE:-}" = f8 ] && [ "${ONEOS_GUEST_FORM:-fold}" = fold ] &&
++   grep -qx 'ro.build.PDA=S948BXXU6ZZKN' "$ROOTFS/system/build.prop" 2>/dev/null; then
++    ONEUI95_FOLD8=1
++fi
+ for d in "$GUEST_SYSTEM_EXT" "$GUEST_PRODUCT"; do
+     if [ -L "$d" ] || [ ! -d "$d" ]; then
+         echo "ERROR: ${d#$ROOTFS/} in the guest image is a link or missing (system_ext and product: one real folder each); not starting the guest"
+@@ -1654,6 +1659,11 @@
+     }'
+     cat <<'DDCEOF'
+     </screenBrightnessMap>
++DDCEOF
++    if [ -n "${3:-}" ] && [ -n "${4:-}" ] && [ -n "${5:-}" ]; then
++        printf '    <densityMapping><density><width>%s</width><height>%s</height><density>%s</density></density></densityMapping>\n' "$3" "$4" "$5"
++    fi
++    cat <<'DDCEOF'
+     <proxSensor>
+         <type>com.samsung.sensor.physical_proximity</type>
+     </proxSensor>
+@@ -1725,8 +1735,16 @@
+         m=$(grep 'DisplayDeviceInfo{' "$STAGE/display_modes_host.log" 2>/dev/null | grep -E "port=$port[},]" |
+             sed -n 's/.*brightnessMaximum \([0-9.]*\).*/\1/p' | head -n 1)
+         DDC_MAX="$DDC_MAX $port:${m:-?}"
+-        if [ $DDC_PROX = 1 ]; then ddc_xml $DDC_RANGE "$m"
+-        else ddc_xml $DDC_RANGE "$m" | sed '/<proxSensor>/,/<\/proxSensor>/d'
++        set --
++        if [ "$ONEUI95_FOLD8" = 1 ]; then
++            # DDC sets the physical density before SystemUI and Launcher read it.
++            set -- $(sed -nE '/DisplayDeviceInfo\{/ { /port='"$port"'[},]/ s/.*uniqueId="local:[0-9]+", ([0-9]+) x ([0-9]+), .* density ([0-9]+),.*/\1 \2 \3/p; }' \
++                "$STAGE/display_modes_host.log" 2>/dev/null | head -n 1)
++            case "$*" in '2448 1848 420'|'1248 1972 420') ;; *) set -- ;; esac
++            [ "$#" != 3 ] || echo "One UI 9.5: port $port stock panel $1 x $2 at $3 dpi"
++        fi
++        if [ $DDC_PROX = 1 ]; then ddc_xml $DDC_RANGE "$m" "$@"
++        else ddc_xml $DDC_RANGE "$m" "$@" | sed '/<proxSensor>/,/<\/proxSensor>/d'
+         fi > "$DOV/up/displayconfig/display_port_$port.xml"
+     done
+     chmod 755 "$DOV/up" "$DOV/up/displayconfig" && chmod 644 "$DOV/up/displayconfig/"*.xml
+@@ -1735,6 +1753,38 @@
+         echo "Display config: product/etc/displayconfig/display_port_ for ports ${DDC_PORTS:-none} (One UI's nits curve, brightnessMaximum${DDC_MAX:- none}$([ $DDC_PROX = 1 ] && echo ", Samsung's IR proximity"))"
+     else
+         echo "Display config: read-only overlay on product/etc refused, left out"
++    fi
++fi
++# Fold8 framework resources are applied by an immutable RRO before zygote.
++# The S26 Ultra product overlay remains available for all unrelated resources.
++if [ "$ONEUI95_FOLD8" = 1 ]; then
++    product_overlay="$GUEST_PRODUCT/overlay"
++    fold8_rro="$STAGE/Fold8OneUI95Framework.apk"
++    fold8_overlay="$STAGE/oneui95-product-overlay"
++    if [ -s "$fold8_rro" ] && [ -d "$product_overlay" ] && [ ! -L "$product_overlay" ] &&
++       [ ! -e "$product_overlay/config/config.xml" ]; then
++        if mkdir -p "$fold8_overlay" &&
++           cp "$fold8_rro" "$fold8_overlay/Fold8OneUI95Framework.apk" &&
++           chmod 755 "$fold8_overlay" && chmod 644 "$fold8_overlay/Fold8OneUI95Framework.apk" &&
++           $BB chcon -R u:object_r:system_file:s0 "$fold8_overlay" &&
++           $BB mount -t overlay overlay -o "ro,lowerdir=$fold8_overlay:$product_overlay" "$product_overlay"; then
++            echo "One UI 9.5: mounted stock Fold8 cutout, status-bar and posture resources"
++        else
++            echo "!!! One UI 9.5: Fold8 framework RRO could not be mounted"
++        fi
++    fi
++    fold8_systemui="$STAGE/Fold8OneUI95SystemUI.apk"
++    oneui_systemui="$GUEST_SYSTEM_EXT/priv-app/SystemUI/SystemUI.apk"
++    if [ -s "$fold8_systemui" ] && [ -f "$oneui_systemui" ] &&
++       [ "$($BB sha256sum "$oneui_systemui" | cut -d' ' -f1)" = "fd1e6fb5daa5785d172d05c5c9ce8904e7fa2858661abd4664a0bddaef98b928" ]; then
++        if chmod 644 "$fold8_systemui" &&
++           $BB chcon u:object_r:system_file:s0 "$fold8_systemui" &&
++           $BB mount --bind "$fold8_systemui" "$oneui_systemui"; then
++            $BB mount -o remount,bind,ro "$fold8_systemui" "$oneui_systemui" 2>/dev/null || true
++            echo "One UI 9.5: restored the stock Fold8 landscape navigation feature"
++        else
++            echo "!!! One UI 9.5: Fold8 SystemUI could not be mounted"
++        fi
+     fi
+ fi
+ # The guest's /mnt is a tmpfs of its own (0.4.63), with One UI's folders bound in
+@@ -3114,7 +3164,7 @@
+ # Infinity-X's AOSP SystemUI takes it too (0.4.33); never ColorOS's (it has
+ # oplus-telephony-common.jar, and make-overlays.sh builds the RRO for its sets
+ # only from SystemUIGoogle or an AOSP SystemUI).
+-if [ -f "$STAGE/OneOSPixelStatusBar.apk" ] && { [ -f "$GUEST_SYSTEM_EXT/priv-app/SystemUIGoogle/SystemUIGoogle.apk" ] ||
++if [ "$ONEUI95_FOLD8" != 1 ] && [ -f "$STAGE/OneOSPixelStatusBar.apk" ] && { [ -f "$GUEST_SYSTEM_EXT/priv-app/SystemUIGoogle/SystemUIGoogle.apk" ] ||
+      { [ -f "$GUEST_SYSTEM_EXT/priv-app/SystemUI/SystemUI.apk" ] && [ ! -f "$GUEST_SYSTEM_EXT/framework/oplus-telephony-common.jar" ]; }; }; then
+     if [ "${ONEOS_GUEST_STATUSBAR_PADDING:-1}" = 1 ]; then
+         mkdir -p "$STAGE/oem/overlay" &&
+@@ -5286,6 +5336,63 @@
+ # equivalents over those host paths for the duration of the session, so those
+ # daemons write into the guest's data. One UI is not running meanwhile and
+ # return_to_oneui.sh removes the binds again.
++# One UI Home stores cover mirroring in its Preferences DataStore. Migrate that
++# one boolean from the stock launcher for this existing guest. The marker lets
++# Home settings take precedence after the first migration.
++f8_home_cover_sync() {
++    od -An -v -tu1 "$1" 2>/dev/null | awk '
++        function varint(    v,m,b) {
++            v=0; m=1
++            do {
++                if (p>n || m>268435456) exit 1
++                b=a[p++]; v+=b%128*m; m*=128
++            } while (b>=128)
++            return v
++        }
++        { for (i=1;i<=NF;i++) a[++n]=$i }
++        END {
++            if (n==0) exit 1
++            p=1
++            while (p<=n) {
++                if (a[p++]!=10) exit 1
++                len=varint(); end=p+len
++                if (end>n+1 || a[p++]!=10) exit 1
++                len=varint()
++                if (p+len>end) exit 1
++                key=""
++                for (i=0;i<len;i++) key=key sprintf("%c",a[p+i])
++                p+=len
++                if (key=="pref_cover_main_sync") {
++                    if (end-p!=4 || a[p]!=18 || a[p+1]!=2 || a[p+2]!=8 ||
++                        (a[p+3]!=0 && a[p+3]!=1)) exit 1
++                    print p+2, a[p+3]
++                    exit
++                }
++                p=end
++            }
++        }'
++}
++if [ "$ONEUI95_FOLD8" = 1 ] && [ ! -e "$STAGE/data/.oneui95-fold8-home-sync" ]; then
++    f8_home_path="com.sec.android.app.launcher/files/datastore/com.sec.android.app.launcher.common.prefs.preferences_pb"
++    f8_home_host="/proc/1/root/data/data/$f8_home_path"
++    f8_home_guest="$STAGE/data/user/0/$f8_home_path"
++    if [ -f "$f8_home_host" ] && [ -f "$f8_home_guest" ] &&
++       [ "$(readlink -f "$f8_home_guest")" = "$f8_home_guest" ]; then
++        f8_stock_sync=$(f8_home_cover_sync "$f8_home_host")
++        f8_guest_sync=$(f8_home_cover_sync "$f8_home_guest")
++        f8_sync_offset=${f8_guest_sync%% *}
++        case "$f8_stock_sync:$f8_guest_sync" in
++            *" 0":*" 1")
++                if printf '\000' | dd of="$f8_home_guest" bs=1 seek="$f8_sync_offset" conv=notrunc 2>/dev/null; then
++                    : > "$STAGE/data/.oneui95-fold8-home-sync"
++                    echo "One UI 9.5: kept the stock Fold8's independent cover Home layout"
++                fi ;;
++            *" 0":*" 0"|*" 1":*" 1")
++                : > "$STAGE/data/.oneui95-fold8-home-sync" ;;
++        esac
++    fi
++fi
++
+ # OneOS: /data/data and /data/media as well. For user 0, installd's CE app data
+ # path is /data/data, not /data/user/0, and in run 25 the guest's
+ # destroyUserData(0) went through the host installd into One UI's real
+@@ -6829,6 +6936,7 @@
+                 wallpaper = "SEC_FLOATING_FEATURE_LOCKSCREEN_CONFIG_WALLPAPER_STYLE"
+                 brand = "SEC_FLOATING_FEATURE_SETTINGS_CONFIG_BRAND_NAME"
+                 statusbar = "SEC_FLOATING_FEATURE_SYSTEMUI_CONFIG_STATUSBAR_CONTAINER_POSITION"
++                navigation = "SEC_FLOATING_FEATURE_FRAMEWORK_CONFIG_NAVIGATION_BAR_THEME"
+                 subdisplay = "SEC_FLOATING_FEATURE_LOCKSCREEN_CONFIG_SUBDISPLAY_POLICY"
+                 camera_indicator = "SEC_FLOATING_FEATURE_LOCKSCREEN_CONFIG_PUNCHHOLE_VI"
+                 ai = "SEC_FLOATING_FEATURE_COMMON_CONFIG_AI_VERSION"
+@@ -6846,6 +6954,8 @@
+                 if (key == brand && content ~ /^Galaxy Z Fold8( [A-Za-z0-9 ]+)?$/)
+                     set_feature(key, content)
+                 if ((key == statusbar || key == subdisplay) && content ~ /^[A-Za-z0-9_,]+$/)
++                    set_feature(key, content)
++                if (key == navigation && content ~ /^[A-Za-z0-9_|]+$/)
+                     set_feature(key, content)
+                 if (key == camera_indicator && content ~ /^[A-Za-z0-9_.,:]+$/)
+                     set_feature(key, content)
+--- a/app-android/app/src/full/assets/root/oneos_root.sh
++++ b/app-android/app/src/full/assets/root/oneos_root.sh
+@@ -175,7 +175,7 @@
+ SET_NOTHING="NothingGenerateRingtoneService_patched.apk NothingLauncher3_patched.apk OneOSBrightnessRange.apk OneOSFoldCutout.apk OneOSGuest.apk OneOSNtAbout.apk OneOSNtAboutFlip.apk OneOSNtAboutFold8.apk OneOSNtAboutPhone.apk OneOSNtAboutS26U.apk OneOSNtEssentialKey.apk OneOSPhoneInjection.apk OneOSTabletQs.apk SystemUI_patched.apk adservices_payload.img appsearch_payload.img art_payload.img bt_payload.img cellbroadcast_payload.img configinfrastructure_payload.img crashrecovery_payload.img extservices_payload.img framework_patched.jar guards.txt healthfitness_payload.img i18n_payload.img ims-ext-common_patched.jar libbootanimation_preapex_patched.so libcamera_client_patched.so mediaprovider_payload.img nfcservices_payload.img nothing_customringtone.tar nothing_product_media.tar nt-telephony-common_patched.jar ondevicepersonalization_payload.img oneos-telephony.jar oneos-telephony.sha256 permission_payload.img rkpd_payload.img runtime_payload.img samcam.tar samcam_bar.tar sdkext_payload.img service.incremental_patched.so services_patched.jar surfaceflinger_patched vold_patched wifi_payload.img"
+ SET_NOTHINGA="NothingLauncher3_patched.apk OneOSBrightnessRange.apk OneOSBrightnessRange34.apk OneOSFoldCutout.apk OneOSGuest.apk OneOSNtAbout.apk OneOSNtAboutFlip.apk OneOSNtAboutFold8.apk OneOSNtAboutPhone.apk OneOSNtAboutS26U.apk OneOSNtEssentialKey.apk OneOSPhoneInjection.apk OneOSTabletQs.apk SystemUI_patched.apk adservices_payload.img appsearch_payload.img art_payload.img bt_payload.img cellbroadcast_payload.img configinfrastructure_payload.img crashrecovery_payload.img extservices_payload.img framework_patched.jar gmssystem_payload.img guards.txt healthfitness_payload.img i18n_payload.img ims-ext-common_patched.jar libbootanimation_preapex_patched.so libcamera_client_patched.so mediaprovider_payload.img nfcservices_payload.img nothing_product_media.tar nt-telephony-common_patched.jar ondevicepersonalization_payload.img oneos-apex-requires.txt oneos-telephony.jar oneos-telephony.sha256 permission_payload.img rkpd_payload.img runtime_payload.img samcam_a.tar sdkext_payload.img service.incremental_patched.so services_patched.jar surfaceflinger_patched telephony-common_patched.jar vold_patched wifi_payload.img"
+ # One UI 9.5 (0.5.22): the Galaxy S26 Ultra build's guarded jars and camera libraries, signal poll, payloads and software floating features (set r1); no vold, no tethering.
+-SET_ONEUI="OneOSFoldCutout.apk OneOSGuest.apk OneOSPhoneInjection.apk OneOSPixelStatusBar.apk adservices_payload.img appsearch_payload.img art_payload.img bt_payload.img cellbroadcast_payload.img configinfrastructure_payload.img crashrecovery_payload.img extservices_payload.img framework_patched.jar gmssystem_payload.img guards.txt healthfitness_payload.img i18n_payload.img libcamera_client_patched.so libcameracompatbilityinfo_patched.so mediaprovider_payload.img nfcservices_payload.img npumanager_payload.img ondevicepersonalization_payload.img oneos-apex-requires.txt oneos-telephony.jar oneos-telephony.sha256 oneui_floating_add.txt permission_payload.img rkpd_payload.img runtime_payload.img sdkext_payload.img services_patched.jar telephony-common_patched.jar telephonycore_payload.img webapp_payload.img wifi_payload.img samcam_a_oneui.tar"
++SET_ONEUI="Fold8OneUI95Framework.apk Fold8OneUI95SystemUI.apk OneOSFoldCutout.apk OneOSGuest.apk OneOSPhoneInjection.apk OneOSPixelStatusBar.apk adservices_payload.img appsearch_payload.img art_payload.img bt_payload.img cellbroadcast_payload.img configinfrastructure_payload.img crashrecovery_payload.img extservices_payload.img framework_patched.jar gmssystem_payload.img guards.txt healthfitness_payload.img i18n_payload.img libcamera_client_patched.so libcameracompatbilityinfo_patched.so mediaprovider_payload.img nfcservices_payload.img npumanager_payload.img ondevicepersonalization_payload.img oneos-apex-requires.txt oneos-telephony.jar oneos-telephony.sha256 oneui_floating_add.txt permission_payload.img rkpd_payload.img runtime_payload.img sdkext_payload.img services_patched.jar telephony-common_patched.jar telephonycore_payload.img webapp_payload.img wifi_payload.img samcam_a_oneui.tar"
+ # OxygenOS 16 (0.4.67): ColorOS's common files and its own payloads; the guest vold as gvld from r2 (0.4.69).
+ SET_OXYGENOS="services_patched.jar oplus-services_patched.jar vold_patched service.incremental_patched.so OneOSGuest.apk ims-ext-common_patched.jar oplus-telephony-common_patched.jar surfaceflinger_patched guards.txt art_payload.img i18n_payload.img runtime_payload.img sdkext_payload.img crashrecovery_payload.img extservices_payload.img permission_payload.img wifi_payload.img appsearch_payload.img mediaprovider_payload.img adservices_payload.img rkpd_payload.img healthfitness_payload.img ondevicepersonalization_payload.img configinfrastructure_payload.img cellbroadcast_payload.img conscrypt_payload.img profiling_payload.img"
+ # OriginOS 7 (0.4.73): vivo's own jars, libraries, launcher and feature list, the signal poll, the fold
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+@@ -914,6 +914,8 @@
+         imageId = Images.ID_ONEUI95,
+         sourceDir = "out/overlays_oneui95_r9",
+         files = listOf(
++            PackageFile("Fold8OneUI95Framework.apk", FileRole.RRO),
++            PackageFile("Fold8OneUI95SystemUI.apk", FileRole.GUEST_FIX),
+             PackageFile("services_patched.jar", FileRole.GUARD_JAR),
+             PackageFile("framework_patched.jar", FileRole.GUARD_JAR),
+             PackageFile("telephony-common_patched.jar", FileRole.GUARD_JAR),
+@@ -932,7 +934,7 @@
+         ) + (COMMON_PAYLOADS + listOf("bt", "nfcservices", "gmssystem", "npumanager", "telephonycore", "webapp")).map { PackageFile("${it}_payload.img", FileRole.APEX_PAYLOAD) }
+             + PackageFile(CELLBROADCAST, FileRole.APEX_PAYLOAD),
+         omitted = listOf(TETHERING),
+-        approxBytes = 584_720_823L + 77_086_720L,
++        approxBytes = 584_720_823L + 77_086_720L + 142_928_585L,
+         hasReturnApp = true,
+     )
+ 
+--- a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
++++ b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+@@ -93,7 +93,7 @@
+         assertEquals("oneui95", oneui.id)
+         assertEquals(Images.ID_ONEUI95, oneui.imageId)
+         assertEquals("out/overlays_oneui95_r9", oneui.sourceDir)
+-        assertEquals(37, oneui.files.size) // r9: + samcam_a_oneui.tar
++        assertEquals(39, oneui.files.size) // Includes the two Fold8 display payloads.
+         assertEquals(22, oneui.files.count { it.role == FileRole.APEX_PAYLOAD })
+         assertEquals(listOf(PackageSets.TETHERING), oneui.omitted)
+         assertEquals(
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -37,3 +37,5 @@
+ ebf0cd3e7f36802c9b86c07d14a316031cda925f6f9a28dbd359b5b390fd25ee  webapp_payload.img
+ ceb5bb5afa77a123327709db62f4c712bdbd63ba4376a5c7d718065867e86049  wifi_payload.img
+ ebe75fd4c0835d95e9013d7b0af8d6526c14572c6b8e920a46efff7e294061fe  samcam_a_oneui.tar
++0e2274b003b0a4c28e06d4542a651b70f16d148548e620d54a8db77b8c940379  Fold8OneUI95Framework.apk
++59a1d5562a563e3efb481be160c2d8b996925831f24b6592e702d1a3716ee2fa  Fold8OneUI95SystemUI.apk

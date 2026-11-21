@@ -161,3 +161,29 @@ For the Fold8 test build, build guest manager 0.14, use
 bundle it as `OneOSGuest.apk` in the 9.5 set by its SHA-256. Rebuild the
 host with the revised set pin and updated scripts, and verify the result
 with `scripts/check-staging-apk.py`.
+
+## Stock Fold8 display and Home layout
+
+After the base and Bring Apps patches, apply
+`oneui95-headline-v0.5.32.patch` and `oneui95-fold8-layout-v0.5.32.patch`.
+The layout patch reads the stock panel sizes and density from the host
+capture. It migrates the existing guest Home's mirroring boolean from the
+host once, preserving the rest of the Preferences DataStore.
+
+The One UI 9.5 set needs two additional payloads. Build
+`Fold8OneUI95Framework.apk` from `fold8-framework-rro` with AAPT2, then align
+and sign it. The XML values come from the Fold8 F971BXXS3AZIJ framework and
+its product and vendor overlays. Android's idmap tool validated all 13
+mappings against S948BXXU6ZZKN's framework.
+
+For `Fold8OneUI95SystemUI.apk`, run `patch_fold8_systemui.py` with the
+original S948BXXU6ZZKN SystemUI APK and an output DEX path. Feed that DEX to
+the upstream `scripts/apk-replace-dex.py` as `classes.dex`. The patch changes
+the navigation plugin's wide-fold gate to the value observed in the stock
+Fold8 APK. Add the two output names and SHA-256 hashes to the One UI set
+manifest and ship their bytes with the app. The boot script mounts them
+only for the Fold8 on this donor build.
+
+PDI's imported APK needs privileged permissions and Samsung Pass storage.
+The latter is unavailable to this guest because the stock storage daemon
+and key operations are shared with the host.
