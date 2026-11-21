@@ -15,6 +15,10 @@ HALF = "FRAMEWORK_SUPPORT_HALF_FOLDED_MODE"
 SIP = "SIP_CONFIG_FOLD_UX_VERSION"
 WALLPAPER = "LOCKSCREEN_CONFIG_WALLPAPER_STYLE"
 TASKBAR = "LAUNCHER_SUPPORT_TASKBAR"
+BRAND = "SETTINGS_CONFIG_BRAND_NAME"
+STATUSBAR = "SYSTEMUI_CONFIG_STATUSBAR_CONTAINER_POSITION"
+SUBDISPLAY = "LOCKSCREEN_CONFIG_SUBDISPLAY_POLICY"
+PUNCHHOLE = "LOCKSCREEN_CONFIG_PUNCHHOLE_VI"
 AI = "COMMON_CONFIG_AI_VERSION"
 SCANNER = "CAMERA_DOCUMENTSCAN_SOLUTIONS"
 
@@ -48,7 +52,10 @@ class Fold8FeaturesTest(unittest.TestCase):
             host_system = directory / "system.xml"
             write_features(host_vendor, {FOLD: "TRUE", HALF: "TRUE", SIP: "0"})
             host = {FOLD: "TRUE", TASKBAR: "TRUE", SIP: "81",
-                    WALLPAPER: "LID,VIDEO,ROTATABLE,GENWEATHER"}
+                    WALLPAPER: "LID,VIDEO,ROTATABLE,GENWEATHER",
+                    BRAND: "Galaxy Z Fold8", STATUSBAR: "DualScreen,SidelingCenterCutout",
+                    SUBDISPLAY: "LOCKSCREEN,ROTATIONAL,AOD",
+                    PUNCHHOLE: "face,pos:0.7608:0.0315:0.5:0.031,size:0.045:0.0598:0.0775:0.0488,type:circle"}
             if wide:
                 host[WIDE] = "TRUE"
             write_features(host_system, host)
@@ -56,7 +63,8 @@ class Fold8FeaturesTest(unittest.TestCase):
             system = stage / "data/oneos_system_floating_feature.xml"
             write_features(vendor, {SCANNER: scan, "CAMERA_CONFIG_CAMID_WIDE": "0"})
             write_features(system, {SCANNER: scan, AI: "20300", SIP: "0",
-                                    WALLPAPER: "VIDEO,FLIPSUIT_LOCK",
+                                    WALLPAPER: "VIDEO,FLIPSUIT_LOCK", BRAND: "Galaxy S26 Ultra",
+                                    PUNCHHOLE: "face,pos:0.5:0.0256,size:0.08:0.0369,type:circle",
                                     "CAMERA_CONFIG_CAMID_WIDE": "0"})
             if scanner:
                 scanner_dir = rootfs / "system/priv-app/VexScanner"
@@ -81,6 +89,10 @@ class Fold8FeaturesTest(unittest.TestCase):
             for key in (FOLD, WIDE, HALF, TASKBAR):
                 self.assertEqual("TRUE", merged[key])
             self.assertEqual("81", merged[SIP])
+            self.assertEqual("Galaxy Z Fold8", merged[BRAND])
+            self.assertEqual("DualScreen,SidelingCenterCutout", merged[STATUSBAR])
+            self.assertEqual("LOCKSCREEN,ROTATIONAL,AOD", merged[SUBDISPLAY])
+            self.assertIn("0.7608", merged[PUNCHHOLE])
             self.assertEqual("LID,VIDEO,ROTATABLE,GENWEATHER", merged[WALLPAPER])
             self.assertEqual("0", merged["CAMERA_CONFIG_CAMID_WIDE"])
             self.assertEqual("SCANNER_FILTER,MAGNET,DOC_TYPE_DETECTOR", merged[SCANNER])

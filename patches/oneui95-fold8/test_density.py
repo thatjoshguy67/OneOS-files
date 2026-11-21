@@ -45,16 +45,21 @@ class DensityTest(unittest.TestCase):
         for native, expected in (('420', '420'), ('440', '440'), ('213', '420'), ('', '420')):
             with self.subTest(native=native):
                 entries = self.displays(self.run_seed(native=native))
+                for panel in (INNER, COVER):
+                    self.assertEqual('false', entries['local:' + panel]['isHomeSupported'])
+                    self.assertEqual('false', entries['local:' + panel]['shouldShowSystemDecors'])
                 self.assertEqual(expected, entries['local:' + INNER]['forcedDensity'])
                 self.assertEqual(expected, entries['local:' + COVER]['forcedDensity'])
 
     def test_preserves_existing_density_and_unrelated_attributes(self):
         old = f'''<display-settings>
-            <display name="local:{INNER}" forcedDensity="440" />
+            <display name="local:{INNER}" forcedDensity="440" isHomeSupported="true" shouldShowSystemDecors="true" />
             <display name="local:{COVER}" someFlag="true" />
         </display-settings>'''
         entries = self.displays(self.run_seed(old))
         self.assertEqual('440', entries['local:' + INNER]['forcedDensity'])
+        self.assertEqual('false', entries['local:' + INNER]['isHomeSupported'])
+        self.assertEqual('false', entries['local:' + INNER]['shouldShowSystemDecors'])
         self.assertEqual('420', entries['local:' + COVER]['forcedDensity'])
         self.assertEqual('true', entries['local:' + COVER]['someFlag'])
 

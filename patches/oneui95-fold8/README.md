@@ -57,6 +57,26 @@ for a new trial.
   when the GSI includes Vex Scanner. This leaves app installation, scanner
   models, service eligibility and CSC/account checks to the native apps.
 
+## Fold8 SystemUI, Home and Settings identity
+
+- The running guest already exposes `SM-F971B` and `h8q` in its model, device
+  and boot properties. Settings also uses a marketing-name feature value.
+  Copy the host's **Galaxy Z Fold8** label into both guest feature files.
+- Use the Fold8's status-bar placement, lock-screen subdisplay policy and
+  camera-indicator geometry. The Fold8's stock build characteristics remain
+  `phone`. Its large-screen configuration comes from the display and fold
+  features.
+- Route One UI's CLOSE and TENT states to the cover, as the host's
+  OUTER_PRIMARY device-state configuration specifies. Whichever panel is
+  active remains logical display 0. The inactive built-in panel cannot
+  request secondary Home or system decorations. This targets the logged
+  loop where Samsung's DeX SecondaryLauncher repeatedly exits on an
+  internal display. Other displays keep their own settings.
+- Samsung's Home build defaults cover mirroring on for Fold devices with a
+  first API level of at least 36. Turn off **Cover screen mirroring** in
+  Home settings for separate workspaces. The patch leaves the user’s
+  launcher data and choice intact.
+
 ## Fold8 display density
 
 The first physical boot completed in the Samsung setup wizard with both

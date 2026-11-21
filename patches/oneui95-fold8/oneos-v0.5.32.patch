@@ -1,8 +1,8 @@
 diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
-index da13479..10b5660 100755
+index da13479..c2e9638 100755
 --- a/switcher/assets/guest_prepare.sh
 +++ b/switcher/assets/guest_prepare.sh
-@@ -6789,6 +6789,92 @@ if grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null &&
+@@ -6789,6 +6789,102 @@ if grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null &&
          fi
      fi
  fi
@@ -39,6 +39,10 @@ index da13479..10b5660 100755
 +                sip = "SEC_FLOATING_FEATURE_SIP_CONFIG_FOLD_UX_VERSION"
 +                taskbar = "SEC_FLOATING_FEATURE_LAUNCHER_SUPPORT_TASKBAR"
 +                wallpaper = "SEC_FLOATING_FEATURE_LOCKSCREEN_CONFIG_WALLPAPER_STYLE"
++                brand = "SEC_FLOATING_FEATURE_SETTINGS_CONFIG_BRAND_NAME"
++                statusbar = "SEC_FLOATING_FEATURE_SYSTEMUI_CONFIG_STATUSBAR_CONTAINER_POSITION"
++                subdisplay = "SEC_FLOATING_FEATURE_LOCKSCREEN_CONFIG_SUBDISPLAY_POLICY"
++                camera_indicator = "SEC_FLOATING_FEATURE_LOCKSCREEN_CONFIG_PUNCHHOLE_VI"
 +                ai = "SEC_FLOATING_FEATURE_COMMON_CONFIG_AI_VERSION"
 +                scan = "SEC_FLOATING_FEATURE_CAMERA_DOCUMENTSCAN_SOLUTIONS"
 +                set_feature(ai, "20271")
@@ -50,6 +54,12 @@ index da13479..10b5660 100755
 +                if (key == sip && content ~ /^[0-9]+$/ && content + 0 > 0)
 +                    set_feature(key, content)
 +                if (key == wallpaper && content ~ /^[A-Z0-9_,]+$/ && content ~ /(^|,)LID(,|$)/)
++                    set_feature(key, content)
++                if (key == brand && content ~ /^Galaxy Z Fold8( [A-Za-z0-9 ]+)?$/)
++                    set_feature(key, content)
++                if ((key == statusbar || key == subdisplay) && content ~ /^[A-Za-z0-9_,]+$/)
++                    set_feature(key, content)
++                if (key == camera_indicator && content ~ /^[A-Za-z0-9_.,:]+$/)
 +                    set_feature(key, content)
 +                next
 +            }
@@ -134,10 +144,24 @@ index 8240786..9adbe6b 100644
          case "$g" in SM-[A-Z0-9]*) ;; *) g="" ;; esac
          if [ -n "$g" ]; then
 diff --git a/switcher/assets/guest_start.sh b/switcher/assets/guest_start.sh
-index cea94b3..a45ec3f 100755
+index cea94b3..57307d4 100755
 --- a/switcher/assets/guest_start.sh
 +++ b/switcher/assets/guest_start.sh
-@@ -585,6 +585,63 @@ LAYOUT
+@@ -499,7 +499,12 @@ if [ "$LAYOUT_HIDDEN" = 1 ] && [ "${ONEOS_GUEST_FOLD:-layout}" != off ]; then
+         # the cover, 1 half open and 2 open on the inner panel (4 and 5, both
+         # panels on, left out). Run 43 had only 0 and 3, so its rear display
+         # state went to the inner panel. ColorOS keeps Samsung's 0 and 3.
+-        if [ -e /system/framework/oplus-services.jar ]; then
++        if [ "${ONEOS_PROFILE:-}" = f8 ] && [ "${ONEOS_GUEST_FORM:-}" = fold ] &&
++           grep -qx 'ro.build.PDA=S948BXXU6ZZKN' /system/build.prop 2>/dev/null; then
++            # Fold8's native states mark CLOSE and TENT as OUTER_PRIMARY.
++            STATES="-1:$INNER:$COVER 0:$COVER:$INNER 1:$COVER:$INNER 3:$INNER:$COVER"
++            LNOTE="Fold8 One UI 9.5: closed and tent use the cover; open uses the inner."
++        elif [ -e /system/framework/oplus-services.jar ]; then
+             # Samsung's states from the phone's own device_state_configuration.xml:
+             # 0 (lid closed) on the cover, every other one on the inner panel.
+             # The Z Fold8 Ultra and Z Fold7 list 0 CLOSE and 3 OPEN; the Z Fold8
+@@ -585,6 +590,70 @@ LAYOUT
          # The inner panel's id for the UI activator's density and fold line
          # (oneos_switch.sh, run 44).
          echo "$INNER" > /data/oneos_inner_display; chmod 644 /data/oneos_inner_display
@@ -169,19 +193,26 @@ index cea94b3..a45ec3f 100755
 +                    f8_inner="port:$((INNER % 256))"; f8_cover="port:$((COVER % 256))"
 +                fi
 +                if awk -v inner="$f8_inner" -v cover="$f8_cover" -v density="$f8_density" '
-+                    BEGIN { panels[1] = inner; panels[2] = cover }
++                    BEGIN {
++                        panels[1] = inner; panels[2] = cover
++                        policy = " isHomeSupported=\"false\" shouldShowSystemDecors=\"false\""
++                    }
 +                    /<display[[:space:]]/ {
 +                        for (i = 1; i <= 2; i++) {
 +                            key = "name=\"" panels[i] "\""
 +                            if (!index($0, key)) continue
 +                            seen[i] = 1
++                            # Display 0 always supports Home and system decorations.
++                            # The other internal panel must never start a DeX Home.
++                            gsub(/[[:space:]]+(isHomeSupported|shouldShowSystemDecors)="[^"]*"/, "")
++                            sub(key, key policy)
 +                            if ($0 !~ /forcedDensity(Ratio)?=/)
 +                                sub(key, key " forcedDensity=\"" density "\"")
 +                        }
 +                    }
 +                    /<\/display-settings>/ {
 +                        for (i = 1; i <= 2; i++)
-+                            if (!seen[i]) print "    <display name=\"" panels[i] "\" forcedDensity=\"" density "\" />"
++                            if (!seen[i]) print "    <display name=\"" panels[i] "\"" policy " forcedDensity=\"" density "\" />"
 +                        closed = 1
 +                    }
 +                    { print }
