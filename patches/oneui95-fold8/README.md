@@ -174,6 +174,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 6. `oneui95-fold8-staging-v0.5.32.patch`
 7. `oneui95-feature-flags-v0.5.32.patch`
 8. `oneui95-feature-entry-v0.5.32.patch`
+9. `oneui95-fold8-boot-fix-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's mirroring setting from the host once. Other Home
@@ -189,6 +190,8 @@ Build and embed these three assets in the `oneui95` set:
   Fold8 framework and its product and vendor overlays. They cover the
   two-panel cutouts, status-bar insets, fold state IDs, close-to-sleep,
   reopen wake states, fold-lock support and unfold transitions.
+  During guest preparation the resource APK is placed on a private tmpfs
+  so overlayfs can use it on the Fold8's casefold-capable storage.
 - `Fold8OneUI95SystemUI.apk`. Run `patch_fold8_systemui.py` with the original
   S948BXXU6ZZKN SystemUI APK and an output DEX path. Feed the output to
   OneOS's `scripts/apk-replace-dex.py` as `classes.dex`. It restores
@@ -203,7 +206,8 @@ Build and embed these three assets in the `oneui95` set:
   It sets `semDisplayDeviceType=0` on the inner panel (physical port 147)
   and `5` on the cover (port 148) when either panel is the active default
   display. Unknown ports and other logical displays follow the guest's
-  existing behavior. The patched JAR retains the OneOS guards. Startup
+  existing behavior. It uses `DisplayAddress.getPort()`, which is present
+  in the 9.5 boot framework. The patched JAR retains the OneOS guards. Startup
   selects it only for the Fold8 and the pinned donor and validates the
   bound file before starting the guest.
 

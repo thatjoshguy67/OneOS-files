@@ -1,0 +1,36 @@
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -1776,7 +1776,11 @@
+     fold8_overlay="$STAGE/oneui95-product-overlay"
+     if [ -s "$fold8_rro" ] && [ -d "$product_overlay" ] && [ ! -L "$product_overlay" ] &&
+        [ ! -e "$product_overlay/config/config.xml" ]; then
++        # A casefold-capable /data filesystem cannot be an overlayfs lower.
++        # Keep this small resource APK on a private tmpfs, like the panel DDC.
+         if mkdir -p "$fold8_overlay" &&
++           $BB mount -t tmpfs -o size=64k,mode=755 tmpfs "$fold8_overlay" &&
++           $BB mount --make-private "$fold8_overlay" &&
+            cp "$fold8_rro" "$fold8_overlay/Fold8OneUI95Framework.apk" &&
+            chmod 755 "$fold8_overlay" && chmod 644 "$fold8_overlay/Fold8OneUI95Framework.apk" &&
+            $BB chcon -R u:object_r:system_file:s0 "$fold8_overlay" &&
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+@@ -935,7 +935,7 @@
+         ) + (COMMON_PAYLOADS + listOf("bt", "nfcservices", "gmssystem", "npumanager", "telephonycore", "webapp")).map { PackageFile("${it}_payload.img", FileRole.APEX_PAYLOAD) }
+             + PackageFile(CELLBROADCAST, FileRole.APEX_PAYLOAD),
+         omitted = listOf(TETHERING),
+-        approxBytes = 584_720_823L + 77_086_720L + 174_338_684L,
++        approxBytes = 584_720_823L + 77_086_720L + 174_338_620L,
+         hasReturnApp = true,
+     )
+ 
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -39,4 +39,4 @@
+ ebe75fd4c0835d95e9013d7b0af8d6526c14572c6b8e920a46efff7e294061fe  samcam_a_oneui.tar
+ 12f857178bb194e800fc4f17817cc13a9a8b3493bf2c3d6156acb757020320fc  Fold8OneUI95Framework.apk
+ 0c12d4fff5abf9169826fabc79fd77b702b668ef7c4cf0fa56c51abf7c3fe601  Fold8OneUI95SystemUI.apk
+-d9a17870e5a8b06009bdb40f970133eecdad645a3af7c3bcbbfd9b6d2f18bc71  Fold8OneUI95Services.jar
++7ceddf45d0e2d935399339df7797a77d6804a25bcd273b9dbd922b84335d07be  Fold8OneUI95Services.jar

@@ -19,13 +19,9 @@ PANEL_TYPE = """\
 
     iget-object v0, v0, Landroid/view/DisplayInfo;->address:Landroid/view/DisplayAddress;
 
-    instance-of v1, v0, Landroid/view/DisplayAddress$Physical;
+    if-eqz v0, :oneos_fold8_panel_done
 
-    if-eqz v1, :oneos_fold8_panel_done
-
-    check-cast v0, Landroid/view/DisplayAddress$Physical;
-
-    invoke-virtual {v0}, Landroid/view/DisplayAddress$Physical;->getPort()I
+    invoke-virtual {v0}, Landroid/view/DisplayAddress;->getPort()I
 
     move-result v0
 
