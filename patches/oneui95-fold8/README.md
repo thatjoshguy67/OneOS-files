@@ -31,8 +31,10 @@ and guard list pin both rebuilt JARs. Put the files in the
 Both the default and Fold8 services builds use `gvld`, so selecting
 the Fold8 path keeps the release's separate guest storage service.
 The new diagnostic gate and the rest of the stock return scripts are
-carried forward. Booting the guest and returning to stock without
-restarting the phone still need a physical test.
+carried forward. The 0.5.33 r24 build booted to Home on the Fold8.
+SystemUI and Home stayed up and the stock `vold` and guest `gvld`
+registered under separate processes. Returning to stock without
+restarting the phone still needs a physical test.
 
 ## Boot recovery
 
