@@ -1,0 +1,119 @@
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+index cebefe5..da1035b 100755
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -6679,6 +6679,92 @@ if grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null &&
+         fi
+     fi
+ fi
++# The S26 Ultra donor does not describe the Fold8's cover or wide inner screen.
++# Home (TouchWizHome 18.5.00.113) reads the FOLD and LANDSCAPE_FOLD flags before
++# choosing separate cover/main layouts. Keep its native mirroring preference.
++# Both floating feature files can supply defaults, so give them the same values
++# derived from the Fold8. The 20271 floor and the optional ProScan capability
++# apply to this guest only and preserve the donor's other scanner solutions.
++if [ "${ONEOS_PROFILE:-}" = f8 ] && [ "$FORM" = fold ] &&
++   [ "${ONEOS_ONEUI_FLOATING:-1}" = 1 ] &&
++   grep -qx 'ro.build.PDA=S948BXXU6ZZKN' "$ROOTFS/system/build.prop" 2>/dev/null; then
++    oneui95_fold8_features() {
++        local input="$1" output="$2" scanner="$3"
++        awk -v scanner="$scanner" '
++            function set_feature(key, value) {
++                if (!(key in values)) order[++count] = key
++                values[key] = value
++            }
++            function read_feature(line,    tag) {
++                if (!match(line, /<SEC_FLOATING_FEATURE_[A-Z0-9_]+>/)) return ""
++                tag = substr(line, RSTART + 1, RLENGTH - 2)
++                content = substr(line, RSTART + RLENGTH)
++                sub(/<.*/, "", content)
++                return tag
++            }
++            function print_feature(key) {
++                print "    <" key ">" values[key] "</" key ">"
++            }
++            BEGIN {
++                fold = "SEC_FLOATING_FEATURE_FRAMEWORK_SUPPORT_FOLDABLE_TYPE_FOLD"
++                wide = "SEC_FLOATING_FEATURE_FRAMEWORK_SUPPORT_FOLDABLE_TYPE_LANDSCAPE_FOLD"
++                half = "SEC_FLOATING_FEATURE_FRAMEWORK_SUPPORT_HALF_FOLDED_MODE"
++                sip = "SEC_FLOATING_FEATURE_SIP_CONFIG_FOLD_UX_VERSION"
++                taskbar = "SEC_FLOATING_FEATURE_LAUNCHER_SUPPORT_TASKBAR"
++                wallpaper = "SEC_FLOATING_FEATURE_LOCKSCREEN_CONFIG_WALLPAPER_STYLE"
++                ai = "SEC_FLOATING_FEATURE_COMMON_CONFIG_AI_VERSION"
++                scan = "SEC_FLOATING_FEATURE_CAMERA_DOCUMENTSCAN_SOLUTIONS"
++                set_feature(ai, "20271")
++            }
++            FILENAME != ARGV[3] {
++                key = read_feature($0)
++                if ((key == fold || key == wide || key == half || key == taskbar) && content == "TRUE")
++                    set_feature(key, content)
++                if (key == sip && content ~ /^[0-9]+$/ && content + 0 > 0)
++                    set_feature(key, content)
++                if (key == wallpaper && content ~ /^[A-Z0-9_,]+$/ && content ~ /(^|,)LID(,|$)/)
++                    set_feature(key, content)
++                next
++            }
++            {
++                key = read_feature($0)
++                if (key == ai && content ~ /^[0-9]+$/ && content + 0 > values[ai] + 0)
++                    set_feature(key, content)
++                if (key == scan && scanner && content ~ /^[A-Z0-9_,]+$/) {
++                    if (content !~ /(^|,)DOC_TYPE_DETECTOR(,|$)/)
++                        set_feature(key, content ",DOC_TYPE_DETECTOR")
++                }
++                if (key in values) {
++                    if (!(key in written)) print_feature(key)
++                    written[key] = 1
++                    next
++                }
++                if ($0 ~ /<\/SecFloatingFeatureSet>/) {
++                    for (i = 1; i <= count; i++)
++                        if (!(order[i] in written)) print_feature(order[i])
++                    closed = 1
++                }
++                print
++            }
++            END { if (!closed || !(fold in values) || !(wide in values)) exit 1 }
++        ' /vendor/etc/floating_feature.xml /system/etc/floating_feature.xml "$input" > "$output"
++    }
++    f8_vendor="$STAGE/data/oneos_floating_feature.xml"
++    f8_system="$STAGE/data/oneos_system_floating_feature.xml"
++    f8_scanner=0
++    [ ! -f "$ROOTFS/system/priv-app/VexScanner/VexScanner.apk" ] || f8_scanner=1
++    if [ -s "$f8_vendor" ] && [ -s "$f8_system" ] &&
++       oneui95_fold8_features "$f8_vendor" "$f8_vendor.f8" "$f8_scanner" &&
++       oneui95_fold8_features "$f8_system" "$f8_system.f8" "$f8_scanner" &&
++       chown 0:0 "$f8_vendor.f8" "$f8_system.f8" &&
++       chmod 644 "$f8_vendor.f8" "$f8_system.f8"; then
++        mv -f "$f8_vendor.f8" "$f8_vendor" && mv -f "$f8_system.f8" "$f8_system" &&
++            echo "Floating features: Fold8 cover, wide inner screen and AI 20271 floor (Vex Scanner present: $f8_scanner)"
++    else
++        echo "!!! Floating features: could not apply the Fold8 profile to both files"
++    fi
++    rm -f "$f8_vendor.f8" "$f8_system.f8"
++fi
+ # The phone's eSIM chip is shared hardware, and an eSIM manager (LPA) in the
+ # guest drives it directly: Pixel's EuiccGoogle opens the chip's ISD-R channel
+ # itself (run 43). A guest factory reset with "Erase eSIMs", Reset mobile
+diff --git a/switcher/assets/guest_props.sh b/switcher/assets/guest_props.sh
+index 9a13e09..0f4d1b1 100644
+--- a/switcher/assets/guest_props.sh
++++ b/switcher/assets/guest_props.sh
+@@ -1673,8 +1673,15 @@ ro.miui.backdrop_sampling_enabled=true"
+     # (One UI 9.5 S948BXXU6ZZKN: SM-S948B), so Galaxy Store offers the image's apps (Live Effect was
+     # "not compatible" for the A36). Device and product names, the SoC and the carrier/CSC props stay
+     # the phone's: Samsung picks carrier settings and hardware resources by those. Back at the return.
+-    # ONEOS_ONEUI_IMAGE_MODEL=0 keeps the phone's model.
+-    if [ "${ONEOS_ONEUI_IMAGE_MODEL:-1}" = 1 ] && grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null; then
++    # Keep the Fold8 identity with the Fold8-specific software configuration.
++    # ONEOS_ONEUI_IMAGE_MODEL=0 also keeps the phone's model on other profiles.
++    oneui_image_model="${ONEOS_ONEUI_IMAGE_MODEL:-1}"
++    if [ "${ONEOS_PROFILE:-}" = f8 ] && [ "${ONEOS_GUEST_FORM:-}" = fold ] &&
++       grep -qx 'ro.build.PDA=S948BXXU6ZZKN' "$ROOTFS/system/build.prop" 2>/dev/null; then
++        oneui_image_model=0
++        echo "guest_props: keeping Fold8 model for One UI 9.5"
++    fi
++    if [ "$oneui_image_model" = 1 ] && grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null; then
+         g=$(sed -n 's/^ro.product.system.model=//p' "$ROOTFS/system/build.prop" 2>/dev/null | tail -n 1)
+         case "$g" in SM-[A-Z0-9]*) ;; *) g="" ;; esac
+         if [ -n "$g" ]; then
