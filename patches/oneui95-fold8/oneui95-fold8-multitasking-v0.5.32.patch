@@ -1,0 +1,86 @@
+diff --git a/app-android/packages/oneui95.guards.txt b/app-android/packages/oneui95.guards.txt
+--- a/app-android/packages/oneui95.guards.txt
++++ b/app-android/packages/oneui95.guards.txt
+@@ -9,5 +9,5 @@
+ # libcamera_client_patched.so, libcameracompatbilityinfo_patched.so: the native camera client with One UI's codes (patches/pixel_camera_native.py)
+ 6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca  services_patched.jar
+-c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3  framework_patched.jar
++a579588354ec89c09a961959cf11addb74f035ee9b926a2918923195d1adb4b0  framework_patched.jar
+ cd02dba1153b2a3a2c0f87da617753d4a8e6c339246cb130e4d91f22506af51e  telephony-common_patched.jar
+ 23d98173e40ce788bc66d4a9678d06869fe5010ade40f001128b30c17ea57e7a  libcamera_client_patched.so
+diff --git a/app-android/packages/oneui95.sha256 b/app-android/packages/oneui95.sha256
+--- a/app-android/packages/oneui95.sha256
++++ b/app-android/packages/oneui95.sha256
+@@ -13,7 +13,7 @@
+ 891790e1579fa78216ed3dbc66e56c38e780b9b8be7d21325fe892f971fbc5da  crashrecovery_payload.img
+ 07651b8f951c09d94c6cd85f38ce304682bae5e1f5bec09dcef619d58a61b304  extservices_payload.img
+-c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3  framework_patched.jar
++a579588354ec89c09a961959cf11addb74f035ee9b926a2918923195d1adb4b0  framework_patched.jar
+ 77784c941f64b86292d73fb4eae1897dd43217274976b2df22155a05b05a2b2e  gmssystem_payload.img
+-a3ed25b7623e8ea02ff043b174a83d579938c41172b86a681742f5c7b150480b  guards.txt
++613fd6f43cffa1692da8a4cda0d2e3abde630d4089a113e4e81aca19de85fec8  guards.txt
+ 9cb0459d57433f6c64a71d9d43e810b98108fefc5db3f1df6c66215b494e2c18  healthfitness_payload.img
+ 65df6ffda49d4f7c1c4225f25d0a641941257fc15555c41e6d14181b2c32609c  i18n_payload.img
+@@ -39,5 +39,5 @@
+ ebe75fd4c0835d95e9013d7b0af8d6526c14572c6b8e920a46efff7e294061fe  samcam_a_oneui.tar
+ da3b8197d7d5edd7aff1cba7f198cb8517eb4ca8633975ad862dcc9f7ebf2a77  Fold8OneUI95Framework.apk
+-e553e3a094bcbab84279ca6d17741204ebfe9853bee60e52016c96cecfdc9b33  Fold8OneUI95SystemUI.apk
++dc176b8d044074069409b4afc7e5fcbcfa223965920cf823b5d98a7904a06a9b  Fold8OneUI95SystemUI.apk
+ 4d32d9dff9cf6ab85c12230a534536668a677091b43b9cb3e7f2d8ebfdbf6b77  Fold8OneUI95Services.jar
+ 27348a492a137bf99a4d90a5937e01c7c06b405299886fe82d147b6cca162f7e  Fold8OneUI95Settings.apk
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.guards.txt b/app-android/core/model/src/test/resources/packages/oneui95.guards.txt
+--- a/app-android/core/model/src/test/resources/packages/oneui95.guards.txt
++++ b/app-android/core/model/src/test/resources/packages/oneui95.guards.txt
+@@ -9,5 +9,5 @@
+ # libcamera_client_patched.so, libcameracompatbilityinfo_patched.so: the native camera client with One UI's codes (patches/pixel_camera_native.py)
+ 6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca  services_patched.jar
+-c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3  framework_patched.jar
++a579588354ec89c09a961959cf11addb74f035ee9b926a2918923195d1adb4b0  framework_patched.jar
+ cd02dba1153b2a3a2c0f87da617753d4a8e6c339246cb130e4d91f22506af51e  telephony-common_patched.jar
+ 23d98173e40ce788bc66d4a9678d06869fe5010ade40f001128b30c17ea57e7a  libcamera_client_patched.so
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -13,7 +13,7 @@
+ 891790e1579fa78216ed3dbc66e56c38e780b9b8be7d21325fe892f971fbc5da  crashrecovery_payload.img
+ 07651b8f951c09d94c6cd85f38ce304682bae5e1f5bec09dcef619d58a61b304  extservices_payload.img
+-c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3  framework_patched.jar
++a579588354ec89c09a961959cf11addb74f035ee9b926a2918923195d1adb4b0  framework_patched.jar
+ 77784c941f64b86292d73fb4eae1897dd43217274976b2df22155a05b05a2b2e  gmssystem_payload.img
+-a3ed25b7623e8ea02ff043b174a83d579938c41172b86a681742f5c7b150480b  guards.txt
++613fd6f43cffa1692da8a4cda0d2e3abde630d4089a113e4e81aca19de85fec8  guards.txt
+ 9cb0459d57433f6c64a71d9d43e810b98108fefc5db3f1df6c66215b494e2c18  healthfitness_payload.img
+ 65df6ffda49d4f7c1c4225f25d0a641941257fc15555c41e6d14181b2c32609c  i18n_payload.img
+@@ -39,5 +39,5 @@
+ ebe75fd4c0835d95e9013d7b0af8d6526c14572c6b8e920a46efff7e294061fe  samcam_a_oneui.tar
+ da3b8197d7d5edd7aff1cba7f198cb8517eb4ca8633975ad862dcc9f7ebf2a77  Fold8OneUI95Framework.apk
+-e553e3a094bcbab84279ca6d17741204ebfe9853bee60e52016c96cecfdc9b33  Fold8OneUI95SystemUI.apk
++dc176b8d044074069409b4afc7e5fcbcfa223965920cf823b5d98a7904a06a9b  Fold8OneUI95SystemUI.apk
+ 4d32d9dff9cf6ab85c12230a534536668a677091b43b9cb3e7f2d8ebfdbf6b77  Fold8OneUI95Services.jar
+ 27348a492a137bf99a4d90a5937e01c7c06b405299886fe82d147b6cca162f7e  Fold8OneUI95Settings.apk
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -1759,11 +1759,11 @@
+ # Offsets and CRCs are generated by scripts/oneui95-media-chip-patch.py.
+ oneui95_hide_media_chip() { # <pinned SystemUI.apk> <temporary APK>
+-    [ "$($BB sha256sum "$1" | cut -d' ' -f1)" = "e553e3a094bcbab84279ca6d17741204ebfe9853bee60e52016c96cecfdc9b33" ] &&
++    [ "$($BB sha256sum "$1" | cut -d' ' -f1)" = "dc176b8d044074069409b4afc7e5fcbcfa223965920cf823b5d98a7904a06a9b" ] &&
+         cp "$1" "$2" &&
+-        printf '\337\063\047\307' | $BB dd of="$2" bs=1 seek=88797198 conv=notrunc 2>/dev/null &&
++        printf '\231\310\131\025' | $BB dd of="$2" bs=1 seek=88797198 conv=notrunc 2>/dev/null &&
+         printf '\206\214\147\325\252\205\072\070\123\070\256\322\150\161\174\340\137\361\302\337\125\343\372\070' | $BB dd of="$2" bs=1 seek=113723616 conv=notrunc 2>/dev/null &&
+         printf '\002' | $BB dd of="$2" bs=1 seek=118344105 conv=notrunc 2>/dev/null &&
+-        printf '\337\063\047\307' | $BB dd of="$2" bs=1 seek=142476094 conv=notrunc 2>/dev/null &&
+-        [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "4953db136ec59ad16a8cc0b05aefa610af85634ff02297344e3f786d3acac377" ]
++        printf '\231\310\131\025' | $BB dd of="$2" bs=1 seek=142586686 conv=notrunc 2>/dev/null &&
++        [ "$($BB sha256sum "$2" | cut -d' ' -f1)" = "4f5ac92de9046d82c2ff9844c805aa84c076baea53e71f7514a6a26bc0e7dd15" ]
+ }
+ 
+@@ -6842,5 +6842,5 @@
+         [ -d "$d" ] && [ ! -L "$d" ] || continue
+         if [ "$ONEUI95_FOLD8" = 1 ] && [ "${d##*/}" = SamsungSmartSuggestions ] &&
+-           [ "$(sha256sum "$ROOTFS/system/framework/framework.jar" | cut -d' ' -f1)" = "c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3" ] &&
++           [ "$(sha256sum "$ROOTFS/system/framework/framework.jar" | cut -d' ' -f1)" = "a579588354ec89c09a961959cf11addb74f035ee9b926a2918923195d1adb4b0" ] &&
+            [ "$(sha256sum "$d/SamsungSmartSuggestions.apk" 2>/dev/null | cut -d' ' -f1)" = "083ab3ff02b2aa7a92f99e4dd08eae698d71f0d2842e9fb5d065b59a0447f459" ]; then
+             echo "One UI 9.5: kept SamsungSmartSuggestions 7.4.01.9 with its guest-private storage fallback"

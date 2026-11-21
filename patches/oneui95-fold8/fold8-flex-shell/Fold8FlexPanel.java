@@ -3,6 +3,7 @@ package com.android.wm.shell.flexpanel;
 import android.app.KeyguardManager;
 import android.app.PendingIntent;
 import android.app.ActivityManager.RunningTaskInfo;
+import android.app.TaskInfo;
 import android.content.BroadcastReceiver;
 import android.content.ComponentCallbacks;
 import android.content.ComponentName;
@@ -32,6 +33,8 @@ import java.util.concurrent.Executor;
 public final class Fold8FlexPanel {
     private static final String TAG = "Fold8FlexPanel";
     private static final String PANEL = "com.android.wm.shell.controlpanel.activity.FlexPanelActivity";
+    private static final String AUTORUN = "android.intent.action.AUTORUN_FLEX_PANEL";
+    private static final String EXPAND = "android.intent.action.EXPAND_FLEX_PANEL";
     private static final String MASTER = "flex_mode_panel_enabled";
     private static final String APP_CHOICES = "fold8_flex_restore_apps_u";
     private static final String TOGGLE = "com.android.systemui.oneos.TOGGLE_FLEX_PANEL";
@@ -173,6 +176,21 @@ public final class Fold8FlexPanel {
         if (panel != null) {
             panel.executorExecute(panel::evaluate);
         }
+    }
+
+    public static boolean isPendingCompanion(TaskInfo panelTask, TaskInfo companion) {
+        Fold8FlexPanel panel = active;
+        if (panel == null || panelTask == null || companion == null || !panel.halfOpen
+                || panel.launchedTaskId != companion.taskId || companion.displayId != MAIN_DISPLAY
+                || panelTask.displayId != MAIN_DISPLAY || panelTask.userId != companion.userId
+                || panelTask.baseIntent == null) {
+            return false;
+        }
+        ComponentName component = panelTask.baseIntent.getComponent();
+        String action = panelTask.baseIntent.getAction();
+        return component != null && "com.android.systemui".equals(component.getPackageName())
+                && PANEL.equals(component.getClassName())
+                && (AUTORUN.equals(action) || EXPAND.equals(action));
     }
 
     private void onPosture(DeviceState state) {
@@ -339,8 +357,7 @@ public final class Fold8FlexPanel {
         launchedTaskId = task.taskId;
         cancelAuto();
         showButton(0);
-        String action = automatic ? "android.intent.action.AUTORUN_FLEX_PANEL"
-                : "android.intent.action.EXPAND_FLEX_PANEL";
+        String action = automatic ? AUTORUN : EXPAND;
         Intent launch = new Intent(action)
                 .setComponent(new ComponentName("com.android.systemui", PANEL))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

@@ -150,11 +150,57 @@ def patch_nav(text):
     return edit_method(text, "isSetMultimodalButton()Z", edit) + FLEX_SHORTCUT_POSITION
 
 
+def patch_stage(text):
+    coordinator = f"{SHELL}/splitscreen/StageCoordinator"
+    listener = f"{SHELL}/splitscreen/StageTaskListener"
+    # A visible companion can appear as an ActivityRecord in TransitionInfo.
+    # Keep the exact task only if Shell has already received it in MAIN.
+    text = replace_once(text,
+        '    :cond_1d\n    new-instance v1, Ljava/lang/StringBuilder;\n\n    const-string v2, "  info:"',
+        f'''    :cond_1d
+    if-nez v12, :oneos_split_error
+    invoke-direct {{v0, v11, v2}}, L{coordinator};->keepFlexCompanion(Landroid/window/TransitionInfo$Change;Ljava/util/HashSet;)Z
+    move-result v35
+    if-nez v35, :cond_18
+
+    :oneos_split_error
+    new-instance v1, Ljava/lang/StringBuilder;
+
+    const-string v2, "  info:"''')
+    return text + f"""
+.method private keepFlexCompanion(Landroid/window/TransitionInfo$Change;Ljava/util/HashSet;)Z
+    .locals 3
+
+    if-eqz p1, :missing
+    invoke-virtual {{p1}}, Landroid/window/TransitionInfo$Change;->getTaskInfo()Landroid/app/ActivityManager$RunningTaskInfo;
+    move-result-object v0
+    iget-object v1, p0, L{coordinator};->mMainStage:L{listener};
+    invoke-virtual {{v1}}, L{listener};->getTopRunningTaskInfo()Landroid/app/ActivityManager$RunningTaskInfo;
+    move-result-object v1
+    invoke-static {{v0, v1}}, L{CONTROLLER};->isPendingCompanion(Landroid/app/TaskInfo;Landroid/app/TaskInfo;)Z
+    move-result v2
+    if-eqz v2, :missing
+
+    iget v0, v1, Landroid/app/ActivityManager$RunningTaskInfo;->taskId:I
+    invoke-static {{v0}}, Ljava/lang/Integer;->valueOf(I)Ljava/lang/Integer;
+    move-result-object v0
+    invoke-virtual {{p2, v0}}, Ljava/util/HashSet;->add(Ljava/lang/Object;)Z
+    const/4 v0, 0x1
+    return v0
+
+    :missing
+    const/4 v0, 0x0
+    return v0
+.end method
+"""
+
+
 PATCHES = {
     NAV: ("smali_classes3", 0x100f418, patch_nav),
     SPLIT: ("smali_classes5", 0x1e912b4, patch_split),
     SHORTCUT: ("smali_classes5", 0x1e912b4, lambda text: text + CLEAR_SHORTCUT),
     PANEL: ("smali_classes5", 0x1e912b4, patch_panel),
+    f"{SHELL}/splitscreen/StageCoordinator": ("smali_classes5", 0x1e912b4, patch_stage),
 }
 
 

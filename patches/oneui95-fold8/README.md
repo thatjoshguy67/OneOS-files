@@ -187,6 +187,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 19. `oneui95-fold8-cover-and-flex-v0.5.32.patch`
 20. `oneui95-fold8-cover-nav-wallpaper-v0.5.32.patch`
 21. `oneui95-fold8-wallpaper-registration-v0.5.32.patch`
+22. `oneui95-fold8-multitasking-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -432,3 +433,25 @@ An isolated runtime probe on the Fold8 reproduced the r23 null exception
 and exercised the r24 setter with the inner and cover IDs and with missing
 and non-wallpaper tokens. Rebuild the OneOS package with the updated
 services pin before updating the 9.5 stage.
+
+### Three-app split screen and Flex entry
+
+Apply `patch_fold8_multi_split.py` to the r24 `framework_patched.jar` with
+`scripts/patch-built-jar.sh`. One UI 9.5 keeps the third-stage organizer,
+split divider, rotate, app pair and Natural Switching code but normally
+enables its multi-split group only for tablets. The patch includes the
+Fold8 in that group without changing the general tablet flag. The native
+panel-sensitive split paths use the guest's restored panel configuration.
+
+Build the updated SystemUI with `patch_fold8_flex_systemui.py` and the
+original donor and r19 tabletop payload. In r24, the existing primary app
+was already in the main split stage when the Flex panel drew. The
+transition contained the app's ActivityRecord rather than a top-level
+Task change, so Shell aborted the split and the Flex panel closed. The
+updated Shell accepts this entry only when the launched Flex activity
+and its exact companion match the pending Fold8 request. All other
+incomplete split transitions go through Samsung's existing handling.
+
+The rebuilt framework initializer, StageCoordinator and Flex controller
+passed isolated ART checks on the Fold8. The three-app layout, drag
+rearranging and panel entry still need an interactive guest run.
