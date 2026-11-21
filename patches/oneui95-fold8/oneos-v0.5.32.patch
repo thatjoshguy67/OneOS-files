@@ -1,8 +1,22 @@
 diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
-index da13479..c2e9638 100755
+index da13479..97fd60b 100755
 --- a/switcher/assets/guest_prepare.sh
 +++ b/switcher/assets/guest_prepare.sh
-@@ -6789,6 +6789,102 @@ if grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null &&
+@@ -3287,7 +3287,12 @@ if [ "${ONEOS_GUEST_APP:-1}" = 1 ]; then
+     cp "$STAGE/boot_status.sh" "$STAGE/data/oneos_bootui/boot_status.sh"
+     chmod 644 "$STAGE/data/oneos_bootui/boot_status.sh"
+     GUEST_APP_APK="$STAGE/OneOSGuest.apk"
+-    [ ! -f "$STAGE/guest_manager.apk" ] || GUEST_APP_APK="$STAGE/guest_manager.apk"
++    # The 9.5 set's manager omits the OxygenOS-only Knox provider stub:
++    # Samsung's android package already owns that provider authority.
++    if ! grep -qx 'ro.build.PDA=S948BXXU6ZZKN' "$ROOTFS/system/build.prop" 2>/dev/null &&
++       [ -f "$STAGE/guest_manager.apk" ]; then
++        GUEST_APP_APK="$STAGE/guest_manager.apk"
++    fi
+     # One integrated OneOS app in every guest, including when guest root is off.
+     rm -f "$STAGE/oem/app/OneOSGuestRoot/GuestRoot.apk"
+     if [ -f "$GUEST_APP_APK" ]; then
+@@ -6789,6 +6794,102 @@ if grep -q '^ro.build.version.oneui=' "$ROOTFS/system/build.prop" 2>/dev/null &&
          fi
      fi
  fi

@@ -88,6 +88,21 @@ port-based IDs, missing native density and existing user choices. The
 startup patch needs a physical boot test. Samsung's boot animation sizing
 and routing are separate from WindowManager density.
 
+## OneOS guest manager
+
+Both official manager variants declared `com.sec.knox.provider2` for
+OxygenOS, and Android rejected the APK because One UI 9.5 already provides
+that authority through its `android` package. The One UI variant removes the
+conflicting provider declaration and preserves the remaining manager
+components. Version 0.13 was installed and resolved to its normal Home entry
+in the running Fold8 guest.
+
+To build this variant, run `remove_guest_knox_stub.py` on the official 0.13
+`guest_manager.apk`; align and sign the result. Pack it as `OneOSGuest.apk`
+in the `oneui95` set and regenerate that set's SHA-256 pin and file index.
+The startup patch prefers that set-specific file for S948BXXU6ZZKN.
+Other system sets keep the common manager, including the OxygenOS stub.
+
 ## Build and verification
 
 For 0.5.32, extract `guest_prepare.sh`, `guest_props.sh` and
