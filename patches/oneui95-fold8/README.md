@@ -171,11 +171,15 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 3. `oneui95-headline-v0.5.32.patch`
 4. `oneui95-fold8-layout-v0.5.32.patch`
 5. `oneui95-fold8-ui-modes-v0.5.32.patch`
+6. `oneui95-fold8-staging-v0.5.32.patch`
+7. `oneui95-feature-flags-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's mirroring setting from the host once. Other Home
 preferences and workspace data are preserved. Use OneOS's **Update** on the
-existing One UI 9.5 stage to deploy the new set before a test boot.
+existing One UI 9.5 stage to deploy the new set before a test boot. The
+staging patch adds the guarded services payload to the root file list so
+the updater can receive and verify it.
 
 Build and embed these three assets in the `oneui95` set:
 
@@ -213,6 +217,16 @@ checks the active panel type, the Home role, unlock and provisioning to
 determine availability. The patch keeps all three supported fold-lock
 preferences intact on later starts, including Samsung's swipe-to-continue
 setting.
+
+### Feature flags
+
+The system detail page shows **Feature flags** on the Fold8 One UI 9.5
+entry. **Dynamic Island player** is on by default. The choice is saved per
+system and takes effect when you next start the guest. When the player is
+off, the boot script derives the media-chip variant from the pinned Fold8
+SystemUI APK and verifies the result before mounting it. The SystemUI
+payload itself and the Fold8 Quick Settings and navigation edits stay the
+same in the staged set.
 
 ### Stock firmware audit
 
