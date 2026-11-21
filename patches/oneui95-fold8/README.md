@@ -413,3 +413,10 @@ policy for the Fold8 and keeps Samsung's `persist.wm.fold.wallpaper_policy`
 override. It does not need to migrate wallpaper files or change the stock
 host's properties. Package the new framework and Home payload and update the
 existing One UI 9.5 stage before retesting both displays.
+
+Use the r23 framework. The original r22 patch reused a live string register
+in `CoreRune.<clinit>`, so ART rejected the class and the guest Zygote
+stopped. The r23 helper leaves that register intact. On the Fold8 and an
+Android 17 emulator, an isolated ART verifier run reproduced the r22 type
+error and cleared it with the r23 initializer. The guest boot and wallpaper
+selection still require on-device testing.

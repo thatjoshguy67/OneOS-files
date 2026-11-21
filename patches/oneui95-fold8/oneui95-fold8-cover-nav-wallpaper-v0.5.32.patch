@@ -28,7 +28,7 @@ diff --git a/app-android/core/model/src/test/resources/packages/oneui95.guards.t
  # libcamera_client_patched.so, libcameracompatbilityinfo_patched.so: the native camera client with One UI's codes (patches/pixel_camera_native.py)
  6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca  services_patched.jar
 -120d24a8eaf81cb4e4efab8509d99273ee40e1ae7744b123cf135f711f3455a2  framework_patched.jar
-+6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5  framework_patched.jar
++c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3  framework_patched.jar
  cd02dba1153b2a3a2c0f87da617753d4a8e6c339246cb130e4d91f22506af51e  telephony-common_patched.jar
  23d98173e40ce788bc66d4a9678d06869fe5010ade40f001128b30c17ea57e7a  libcamera_client_patched.so
  720014ae5f57472b16183a563e1761798df3369a9dabe48a834158a5e2a9ce40  libcameracompatbilityinfo_patched.so
@@ -40,10 +40,10 @@ diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b
  891790e1579fa78216ed3dbc66e56c38e780b9b8be7d21325fe892f971fbc5da  crashrecovery_payload.img
  07651b8f951c09d94c6cd85f38ce304682bae5e1f5bec09dcef619d58a61b304  extservices_payload.img
 -120d24a8eaf81cb4e4efab8509d99273ee40e1ae7744b123cf135f711f3455a2  framework_patched.jar
-+6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5  framework_patched.jar
++c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3  framework_patched.jar
  77784c941f64b86292d73fb4eae1897dd43217274976b2df22155a05b05a2b2e  gmssystem_payload.img
 -403432f6f0f7de171ceb62307b45b904ebcdf52e4a8ca3266a4a97e8e22eb814  guards.txt
-+0f17f6f1acb6de0cbb0fb57c1387049ecfb4a3f2ca69ca165e5073c2d37f4bb2  guards.txt
++a3ed25b7623e8ea02ff043b174a83d579938c41172b86a681742f5c7b150480b  guards.txt
  9cb0459d57433f6c64a71d9d43e810b98108fefc5db3f1df6c66215b494e2c18  healthfitness_payload.img
  65df6ffda49d4f7c1c4225f25d0a641941257fc15555c41e6d14181b2c32609c  i18n_payload.img
 @@ -42,2 +42,3 @@
@@ -61,7 +61,7 @@ diff --git a/app-android/packages/oneui95.guards.txt b/app-android/packages/oneu
  # libcamera_client_patched.so, libcameracompatbilityinfo_patched.so: the native camera client with One UI's codes (patches/pixel_camera_native.py)
  6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca  services_patched.jar
 -d932b4fdfc01488bcce95a3dccb2bb2aa77c5e40237e05ff619a008babcbd421  framework_patched.jar
-+6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5  framework_patched.jar
++c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3  framework_patched.jar
  cd02dba1153b2a3a2c0f87da617753d4a8e6c339246cb130e4d91f22506af51e  telephony-common_patched.jar
  23d98173e40ce788bc66d4a9678d06869fe5010ade40f001128b30c17ea57e7a  libcamera_client_patched.so
  720014ae5f57472b16183a563e1761798df3369a9dabe48a834158a5e2a9ce40  libcameracompatbilityinfo_patched.so
@@ -73,10 +73,10 @@ diff --git a/app-android/packages/oneui95.sha256 b/app-android/packages/oneui95.
  891790e1579fa78216ed3dbc66e56c38e780b9b8be7d21325fe892f971fbc5da  crashrecovery_payload.img
  07651b8f951c09d94c6cd85f38ce304682bae5e1f5bec09dcef619d58a61b304  extservices_payload.img
 -120d24a8eaf81cb4e4efab8509d99273ee40e1ae7744b123cf135f711f3455a2  framework_patched.jar
-+6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5  framework_patched.jar
++c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3  framework_patched.jar
  77784c941f64b86292d73fb4eae1897dd43217274976b2df22155a05b05a2b2e  gmssystem_payload.img
 -403432f6f0f7de171ceb62307b45b904ebcdf52e4a8ca3266a4a97e8e22eb814  guards.txt
-+0f17f6f1acb6de0cbb0fb57c1387049ecfb4a3f2ca69ca165e5073c2d37f4bb2  guards.txt
++a3ed25b7623e8ea02ff043b174a83d579938c41172b86a681742f5c7b150480b  guards.txt
  9cb0459d57433f6c64a71d9d43e810b98108fefc5db3f1df6c66215b494e2c18  healthfitness_payload.img
  65df6ffda49d4f7c1c4225f25d0a641941257fc15555c41e6d14181b2c32609c  i18n_payload.img
 @@ -42,2 +42,3 @@
@@ -108,7 +108,7 @@ diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
          [ -d "$d" ] && [ ! -L "$d" ] || continue
          if [ "$ONEUI95_FOLD8" = 1 ] && [ "${d##*/}" = SamsungSmartSuggestions ] &&
 -           [ "$(sha256sum "$ROOTFS/system/framework/framework.jar" | cut -d' ' -f1)" = "120d24a8eaf81cb4e4efab8509d99273ee40e1ae7744b123cf135f711f3455a2" ] &&
-+           [ "$(sha256sum "$ROOTFS/system/framework/framework.jar" | cut -d' ' -f1)" = "6ad0a25ef9a90f3c483ffbf863e417248524314b4bdd99e8df638df4879850f5" ] &&
++           [ "$(sha256sum "$ROOTFS/system/framework/framework.jar" | cut -d' ' -f1)" = "c7d2912fe62b5f243e48f338413e079202082ccaae607f48ea6340e95b5d33d3" ] &&
             [ "$(sha256sum "$d/SamsungSmartSuggestions.apk" 2>/dev/null | cut -d' ' -f1)" = "083ab3ff02b2aa7a92f99e4dd08eae698d71f0d2842e9fb5d065b59a0447f459" ]; then
              echo "One UI 9.5: kept SamsungSmartSuggestions 7.4.01.9 with its guest-private storage fallback"
 diff --git a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
