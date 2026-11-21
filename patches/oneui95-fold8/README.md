@@ -8,6 +8,32 @@ At the time of this rebase, the upstream 0.5.32 Git tag still pointed to
 the 0.5.31 source commit (`5a0e8c3`). The 0.5.32 patch uses the three
 session scripts shipped in the official 0.5.32 APK as its source base.
 
+## r24 on OneOS 0.5.33
+
+Apply `oneos-v0.5.33-fold8-r24.patch` to
+`e5683cc3da23c8856609875c826119635cc49381`. That is the 0.5.33 source
+revision corresponding to the supplied APK. The upstream `v0.5.33` tag
+currently points to the previous commit. This patch carries the r24
+Fold8 stack onto the release with its new guest storage payloads.
+
+Use the release APK's `assets/oneos/sets/oneui95.sha256` to obtain and
+verify `services_patched.jar`, `vold_patched` and
+`service.incremental_patched.so`. Reuse r24's four Fold8 APKs and its
+per-set `OneOSGuest.apk`. Apply the 0.5.33
+`switcher/patches/guest_own_vold.py` to r24's
+`Fold8OneUI95Services.jar` with `scripts/patch-built-jar.sh`. Apply it
+to r24's `framework_patched.jar` through a Python wrapper that passes
+`--framework` before the decoded-tree argument. The matching manifests
+and guard list pin both rebuilt JARs. Put the files in the
+`out/overlays_oneui95_r10` input set and run
+`scripts/check-staging-apk.py` on the resulting APK.
+
+Both the default and Fold8 services builds use `gvld`, so selecting
+the Fold8 path keeps the release's separate guest storage service.
+The new diagnostic gate and the rest of the stock return scripts are
+carried forward. Booting the guest and returning to stock without
+restarting the phone still need a physical test.
+
 ## Boot recovery
 
 The retained Nov 19 takeover log records that zygote started at 07:53:03.
