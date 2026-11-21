@@ -1,8 +1,12 @@
 # Galaxy Z Fold8 on One UI 9.5
 
-This patch targets OneOS 0.5.31 (`5a0e8c3`), profile `f8`, and the
-S26 Ultra GSI `oneui95-s948b` (S948BXXU6ZZKN). The raw image stays pinned
-at `82ddc8561a2687f041c2820a0d910f266b3b71753582a65ebff0cec7e8d0bbe4`.
+This patch targets OneOS 0.5.32, profile `f8`, and the S26 Ultra GSI
+`oneui95-s948b` (S948BXXU6ZZKN). The raw image stays pinned at
+`82ddc8561a2687f041c2820a0d910f266b3b71753582a65ebff0cec7e8d0bbe4`.
+
+At the time of this rebase, the upstream 0.5.32 Git tag still pointed to
+the 0.5.31 source commit (`5a0e8c3`). The 0.5.32 patch uses the two
+session scripts shipped in the official 0.5.32 APK as its source base.
 
 ## Boot recovery
 
@@ -15,8 +19,8 @@ early One UI 9.5 services JAR:
 | Payload | SHA-256 |
 | --- | --- |
 | Services JAR in the failed stage | `53a6ec956bcbd980ac29eeb341a2830367f77f31b79a540c8fc8ad91b287d4c2` |
-| Services JAR pinned by OneOS 0.5.31 | `6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca` |
-| Guards pinned by OneOS 0.5.31 | `94edbc636284afedaecd020b56a0014981cfd6b769251b3226a338fd20eaa712` |
+| Services JAR pinned by OneOS 0.5.32 | `6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca` |
+| Guards pinned by OneOS 0.5.32 | `94edbc636284afedaecd020b56a0014981cfd6b769251b3226a338fd20eaa712` |
 
 The Fold8's vendor SELinux policy contains a package-only signer stanza. The
 old guest parser ignores the package entries and rejects the resulting empty
@@ -55,7 +59,22 @@ for a new trial.
 
 ## Build and verification
 
-With upstream tag `v0.5.31` checked out:
+For 0.5.32, extract `guest_prepare.sh` and `guest_props.sh` by hash from
+the official APK's `assets/oneos/sets/scripts.sha256` and
+`assets/oneos/files/`. Put them in `switcher/assets/`, then apply the patch:
+
+```sh
+git apply /path/to/OneOS-files/patches/oneui95-fold8/oneos-v0.5.32.patch
+python3 /path/to/OneOS-files/patches/oneui95-fold8/test_features.py .
+```
+
+The 0.5.32 APK was rebuilt from the official APK with the two patched
+scripts, updated content hashes and size index, and regenerated script
+manifest pins in both BuildConfig and AppAssets. The other release assets
+and the root script were retained. The official 9.5 set still carries the
+same services JAR and adds its own A-series camera payload.
+
+For the older 0.5.31 patch, with upstream tag `v0.5.31` checked out:
 
 ```sh
 git apply /path/to/OneOS-files/patches/oneui95-fold8/oneos-v0.5.31.patch
@@ -67,9 +86,8 @@ cd app-android
 
 Android normally requires matching signing certificates for an in-place
 update. The 0.5.31 contributor channel accepts only its listed package payload roles.
-These two changes go through the app's hashed session scripts and require a
-new app build. This patch uses the original OneOS 0.5.31 boot-fix payloads and
-app guards.
+These changes go through the app's hashed session scripts. The patched APK
+uses the official release's boot-fix payloads and app guards.
 
 Validation covers the exact Home APK's feature checks, the pinned framework fix,
 the feature XML merge with Fold8 and donor inputs, fixture tests for scope,
