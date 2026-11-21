@@ -184,6 +184,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 16. `oneui95-fold8-rotation-v0.5.32.patch`
 17. `oneui95-fold8-tabletop-control-v0.5.32.patch`
 18. `oneui95-fold8-flex-panel-v0.5.32.patch`
+19. `oneui95-fold8-cover-and-flex-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's layout preferences from the stock launcher once.
@@ -353,3 +354,32 @@ classes, including the previous tabletop patch, and Android loaded the
 Flex Panel, split-screen and navigation classes. Hinge-triggered launch,
 native panel controls and the visible taskbar shortcut still need a
 physical guest run.
+
+
+### Cover-screen configuration and Flex Panel cleanup
+
+The first r20 boot reproduced a Launcher taskbar alongside SystemUI
+navigation in cover mode. The guest WindowManager already records the
+physical panel IDs. Its `Configuration` dropped the ID when copying,
+merging or parceling it to clients. Apply
+`patch_fold8_panel_configuration.py` to the PDI-patched
+`framework_patched.jar` with `scripts/patch-built-jar.sh`. The patch
+restores Samsung's `CONFIG_DISPLAY_DEVICE_TYPE` bit, the stock
+undefined value, and the stock parcel field order. This lets Launcher
+and SystemUI receive panel 5 on the cover and panel 0 inside. It uses
+their existing separate workspaces and preserves launcher data.
+
+The revised `patch_fold8_flex_systemui.py` builds the r21 SystemUI from
+the original donor and the r19 tabletop payload. To reproduce the
+intermediate r20 SystemUI, use its source at commit `9e02efa`.
+The Flex Activity now disposes the touch receiver and monitor on the
+activity looper. The shortcut floats over the bottom half of the inner
+display and can be dragged. Samsung's navigation shortcut is available
+if the floating window fails to attach. The context refreshes the
+position after display changes and hides the shortcut outside Flex posture.
+
+The r21 Configuration copy, delta and parcel paths passed isolated ART
+probes on the Fold8. Its Flex cleanup disposed a real temporary input
+receiver on the owning looper. Visual cover Home, navigation ownership,
+the floating hint, and a full open and close of Flex Panel still require
+the user-started r21 guest session.

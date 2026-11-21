@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -85,6 +86,28 @@ FLEX_SHORTCUT_POSITION = f"""
 """
 
 
+INPUT_CLEANUP = f"""
+.method private disposeFlexInput()V
+    .locals 2
+
+    iget-object v0, p0, L{PANEL};->mEventReceiver:L{PANEL}$EventReceiver;
+    const/4 v1, 0x0
+    if-eqz v0, :oneos_dispose_monitor
+    iput-object v1, p0, L{PANEL};->mEventReceiver:L{PANEL}$EventReceiver;
+    invoke-virtual {{v0}}, Landroid/view/InputEventReceiver;->dispose()V
+
+    :oneos_dispose_monitor
+    iget-object v0, p0, L{PANEL};->mInputMonitor:Landroid/view/InputMonitor;
+    if-eqz v0, :oneos_input_done
+    iput-object v1, p0, L{PANEL};->mInputMonitor:Landroid/view/InputMonitor;
+    invoke-virtual {{v0}}, Landroid/view/InputMonitor;->dispose()V
+
+    :oneos_input_done
+    return-void
+.end method
+"""
+
+
 def edit_method(text, signature, edit):
     start = text.index(f" {signature}\n")
     end = text.index(".end method", start)
@@ -106,11 +129,15 @@ def patch_split(text):
 
 
 def patch_panel(text):
+    # Activity callbacks run on the same looper used by the input receiver.
+    for method in ("onPause()V", "onDestroy()V"):
+        text = edit_method(text, method, lambda body: re.sub(
+            r"(    \.locals \d+\n)", rf"\g<1>\n    invoke-direct {{p0}}, L{PANEL};->disposeFlexInput()V\n", body, count=1))
     for method in ("onResume()V", "onDestroy()V"):
         text = edit_method(text, method, lambda body: replace_once(
             body, "    return-void\n",
             f"    invoke-static {{}}, L{CONTROLLER};->onPanelChanged()V\n\n    return-void\n"))
-    return text
+    return text + INPUT_CLEANUP
 
 
 def patch_nav(text):
@@ -139,7 +166,7 @@ def compile_controller(work, smali, apktool):
     classes = work / "classes"
     classes.mkdir()
     subprocess.run(["javac", "--release", "17", "-cp", str(api), "-d", str(classes),
-                    str(source / "Fold8FlexPanel.java"),
+                    *map(str, sorted(source.glob("*.java"))),
                     *map(str, sorted((source / "stubs").rglob("*.java")))], check=True)
     compiled = work / "controller.jar"
     subprocess.run([str(compiler), "--min-api", "36", "--lib", str(api),

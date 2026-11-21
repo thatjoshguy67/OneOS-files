@@ -58,6 +58,8 @@ public final class Fold8FlexPanel {
     private final SplitScreenController split;
     private final KeyguardManager keyguard;
     private final PowerManager power;
+    private final Fold8FlexPanelHint floatingHint;
+    private boolean usedBarShortcut;
     private final Runnable autoOpen = () -> executorExecute(this::runAutoOpen);
     private final Runnable launchTimeout = () -> executorExecute(this::onLaunchTimeout);
 
@@ -65,7 +67,7 @@ public final class Fold8FlexPanel {
     private boolean imeVisible;
     private boolean shadeOpen;
     private boolean panelWasVisible;
-    private int buttonIcon;
+    private volatile int buttonIcon;
     private int scheduledTaskId = NO_TASK;
     private long autoDeadline;
     private int attemptedTaskId = NO_TASK;
@@ -112,6 +114,8 @@ public final class Fold8FlexPanel {
         this.split = split;
         this.keyguard = context.getSystemService(KeyguardManager.class);
         this.power = context.getSystemService(PowerManager.class);
+        this.floatingHint = new Fold8FlexPanelHint(context,
+                () -> executorExecute(() -> onBroadcast(TOGGLE)));
     }
 
     private void register(ShellTaskOrganizer organizer, DisplayImeController ime) {
@@ -154,6 +158,7 @@ public final class Fold8FlexPanel {
         context.registerComponentCallbacks(new ComponentCallbacks() {
             @Override public void onConfigurationChanged(Configuration configuration) {
                 executorExecute(Fold8FlexPanel.this::evaluate);
+                timer.post(Fold8FlexPanel.this::applyButton);
             }
             @Override public void onLowMemory() {}
         });
@@ -358,16 +363,34 @@ public final class Fold8FlexPanel {
     }
 
     private void showButton(int icon) {
-        if (icon == buttonIcon) {
+        if (icon != buttonIcon) {
+            buttonIcon = icon;
+            timer.post(this::applyButton);
+        }
+    }
+
+    private void applyButton() {
+        int icon = buttonIcon;
+        if (icon == 0 || !onInnerDisplay()) {
+            floatingHint.hide();
+            clearBarShortcut();
             return;
         }
-        if (icon == 0) {
-            shortcut.clearButton();
-        } else {
-            Intent action = new Intent(TOGGLE).setPackage(context.getPackageName());
-            PendingIntent toggle = PendingIntent.getBroadcast(context, 0, action, PendingIntent.FLAG_IMMUTABLE);
-            shortcut.setNavigationBarButton(icon, toggle);
+        int description = icon == CLOSE_ICON ? 0x7e1308ce : 0x7e1308cf;
+        if (floatingHint.show(icon, description)) {
+            clearBarShortcut();
+            return;
         }
-        buttonIcon = icon;
+        Intent action = new Intent(TOGGLE).setPackage(context.getPackageName());
+        PendingIntent toggle = PendingIntent.getBroadcast(context, 0, action, PendingIntent.FLAG_IMMUTABLE);
+        shortcut.setNavigationBarButton(icon, toggle);
+        usedBarShortcut = true;
+    }
+
+    private void clearBarShortcut() {
+        if (usedBarShortcut) {
+            shortcut.clearButton();
+            usedBarShortcut = false;
+        }
     }
 }
