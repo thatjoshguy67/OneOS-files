@@ -176,6 +176,7 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 8. `oneui95-feature-entry-v0.5.32.patch`
 9. `oneui95-fold8-boot-fix-v0.5.32.patch`
 10. `oneui95-fold8-boot-animation-v0.5.32.patch`
+11. `oneui95-systemui-shared-code-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
 existing guest Home's mirroring setting from the host once. Other Home
@@ -196,7 +197,9 @@ Build and embed these three assets in the `oneui95` set:
 - `Fold8OneUI95SystemUI.apk`. Run `patch_fold8_systemui.py` with the original
   S948BXXU6ZZKN SystemUI APK and an output DEX path. Feed the output to
   OneOS's `scripts/apk-replace-dex.py` as `classes.dex`. It restores
-  Samsung's wide-fold navigation gate and selects `LANDSCAPE_FOLD` on the
+  Samsung's wide-fold navigation gate by redirecting only its encoded
+  method reference. The old code item is shared with Kotlin's empty-list
+  `size()` and iterator methods. The patch selects `LANDSCAPE_FOLD` on the
   phone branch. The existing 9.5 interactor chooses `WALLET` when closed
   and `WIDE_WALLET` when open.
 - `Fold8OneUI95Services.jar`. Run OneOS's `scripts/patch-built-jar.sh` with the

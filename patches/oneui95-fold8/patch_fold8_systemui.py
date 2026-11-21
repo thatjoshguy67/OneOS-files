@@ -9,6 +9,8 @@ import zlib
 
 NAV = b"Lcom/android/systemui/navigationbar/plugin/BasicRuneFeatureChecker;"
 NAV_METHOD = b"isFoldableTypeLandscapeFold"
+TRUE_OWNER = b"Lcom/android/systemui/navigationbar/NavigationBarControllerImpl;"
+TRUE_METHOD = b"supportsTaskbar"
 QS = b"Lcom/android/systemui/util/SecQsUiDisplayModeInteractor;"
 QS_METHOD = b"getDeviceFormFactor"
 FORM = QS[:-1] + b"$DeviceFormFactor;"
@@ -36,7 +38,7 @@ def string_at(dex, table, index):
     return bytes(dex[at:dex.index(0, at)])
 
 
-def method_offsets(dex, header, owner_name, method_name, result_type):
+def method_offsets(dex, header, owner_name, method_name, result_type, *, include_reference=False):
     strings, types = u32(dex, header + 60), u32(dex, header + 68)
     protos, methods = u32(dex, header + 76), u32(dex, header + 92)
     class_count, classes = struct.unpack_from("<II", dex, header + 96)
@@ -61,12 +63,13 @@ def method_offsets(dex, header, owner_name, method_name, result_type):
                 diff, at = leb(dex, at)
                 method += diff
                 _, at = leb(dex, at)
+                reference = at
                 code, at = leb(dex, at)
                 owner, proto, name = struct.unpack_from("<HHI", dex, methods + method * 8)
                 if owner == type_index and string(name) == method_name:
                     result, parameters = struct.unpack_from("<II", dex, protos + proto * 12 + 4)
                     if string(u32(dex, types + result * 4)) == result_type and parameters == 0:
-                        yield code
+                        yield (code, reference, at - reference) if include_reference else code
 
 
 def field_indices(dex, header, owner_name, names):
@@ -104,6 +107,31 @@ def patch_qs(dex, code, header, end):
     struct.pack_into("<H", dex, offset, fields[b"LANDSCAPE_FOLD"])
 
 
+def redirect_navigation_gate(dex, header, end, entry):
+    code, reference, length = entry
+    alternatives = list(method_offsets(dex, header, TRUE_OWNER, TRUE_METHOD, b"Z"))
+    if len(alternatives) != 1:
+        raise ValueError("Expected a matching true code item in the navigation DEX")
+    target = alternatives[0]
+    if not all(header < offset + 20 <= end and u32(dex, offset + 12) == 2
+               for offset in (code, target)):
+        raise ValueError("Unexpected navigation code item sizes")
+    if (dex[code+16:code+20] != OLD or dex[target+16:target+20] != NEW
+            or dex[code:code+8] != dex[target:target+8]):
+        raise ValueError("Navigation code items do not match the donor")
+    encoded = bytearray()
+    value = target
+    while value >= 128:
+        encoded.append((value & 127) | 128)
+        value >>= 7
+    encoded.append(value)
+    if len(encoded) != length:
+        raise ValueError("Navigation reference would change the encoded class data size")
+    # R8 deduplicated the false code item with EmptyIterator.hasNext and
+    # other methods. Redirect this method only, leaving both code items intact.
+    dex[reference:reference + length] = encoded
+
+
 def patch(apk, output):
     with zipfile.ZipFile(apk) as archive:
         dex = bytearray(archive.read("classes.dex"))
@@ -121,15 +149,13 @@ def patch(apk, output):
         if (hashlib.sha1(dex[header+32:end]).digest() != dex[header+12:header+32]
                 or zlib.adler32(dex[header+12:end]) != u32(dex, header + 8)):
             raise ValueError("Invalid original DEX digests")
-        nav.extend((code, header, end) for code in method_offsets(dex, header, NAV, NAV_METHOD, b"Z"))
+        nav.extend((code, header, end) for code in method_offsets(dex, header, NAV, NAV_METHOD, b"Z", include_reference=True))
         qs.extend((code, header, end) for code in method_offsets(dex, header, QS, QS_METHOD, FORM))
         header = end
     if len(nav) != 1 or len(qs) != 1:
         raise ValueError(f"Expected one navigation and one Quick Settings gate, found {len(nav)} and {len(qs)}")
-    code, header, end = nav[0]
-    if not header < code + 20 <= end or u32(dex, code + 12) != 2 or dex[code+16:code+20] != OLD:
-        raise ValueError("Navigation gate does not match the S948B donor")
-    dex[code+16:code+20] = NEW
+    entry, header, end = nav[0]
+    redirect_navigation_gate(dex, header, end, entry)
     patch_qs(dex, *qs[0])
     for _, header, end in (nav[0], qs[0]):
         dex[header+12:header+32] = hashlib.sha1(dex[header+32:end]).digest()
