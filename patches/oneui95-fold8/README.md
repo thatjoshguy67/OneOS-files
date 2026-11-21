@@ -311,3 +311,37 @@ framework path. To reproduce the framework payload, apply
 JAR with the updated guard manifest. Boot preparation keeps the donor's
 Samsung Suggestions APK visible only when its digest and the mounted
 framework digest both match. The packaged fallback needs a guest boot check.
+
+
+### Flex Mode panel port in progress
+
+Stock F971BXXS3AZIJ and donor S948BXXU6ZZKN both return unsupported
+from WindowManager's Flex Panel app query and discard app-choice writes.
+The Fold8's installed Flex Restore module implements these on stock.
+The guest port uses the same per-user choice keys and its own settings
+provider. The host and donor framework resources have the same Flex app
+policy entries. The port reads that resource for native app layouts and
+checks each app's launcher activities, resize support and opt-out metadata.
+The getter requires Android's task-management permission. The setter requires
+permission to write secure settings. Cross-user calls require Android's
+cross-user permission.
+
+The following build inputs are for the Flex port under development. The
+installed r19 set still uses its original Settings and services payloads.
+
+- Apply `patch_fold8_flex_policy.py` to r19's `Fold8OneUI95Services.jar`
+  with `scripts/patch-built-jar.sh`. Set `ANDROID_HOME` to a SDK containing
+  the Android 37.0 platform and 37.0.0 build tools. The compile-time declaration
+  for Android's hidden ActivityInfo methods stays outside the assembled DEX.
+- Run `patch_fold8_flex_settings.py <r19-Fold8OneUI95Settings.apk> <output.dex>`.
+  Use `scripts/apk-replace-dex.py` with the original S948BXXU6ZZKN Settings APK
+  to package the new `classes.dex`. It enables the native Advanced features
+  row and search entry and retains Continue apps on cover screen.
+
+Fixture tests used the actual donor policy resource and covered app
+eligibility, independent user choices and failed writes. On the stock
+Fold8, isolated Android runtime probes loaded the rebuilt policy and checked
+Settings availability and search. The guest still needs the Shell launch
+path wired to its half-open state, along with split-window configuration
+and navigation behavior. Test all of these together before adding the
+candidate payloads to the staged set.
