@@ -1,0 +1,4 @@
+<resources>
+    <bool name="config_navBarCanMove">false</bool>
+    <bool name="config_navBarShowImeHideButtonAllRotation">true</bool>
+</resources>

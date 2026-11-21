@@ -177,23 +177,27 @@ Apply the patches in this order to OneOS source `813cc976475c65dc271f1adfcd6dae5
 9. `oneui95-fold8-boot-fix-v0.5.32.patch`
 10. `oneui95-fold8-boot-animation-v0.5.32.patch`
 11. `oneui95-systemui-shared-code-v0.5.32.patch`
+12. `oneui95-fold8-panel-parity-v0.5.32.patch`
 
 The layout patch restores the host's 420 dpi panel records and migrates the
-existing guest Home's mirroring setting from the host once. Other Home
-preferences and workspace data are preserved. Use OneOS's **Update** on the
+existing guest Home's layout preferences from the stock launcher once.
+The stock values observed were 6×8 on the inner workspace and 4×6 on
+the cover. Workspace databases, pages and unrelated preferences are preserved. Use OneOS's **Update** on the
 existing One UI 9.5 stage to deploy the new set before a test boot. The
 staging patch adds the guarded services payload to the root file list so
 the updater can receive and verify it.
 
-Build and embed these three assets in the `oneui95` set:
+Build and embed these four assets in the `oneui95` set:
 
 - `Fold8OneUI95Framework.apk`. Build `fold8-framework-rro` with AAPT2, then
-  align and sign it. The 17 resource mappings use the values from the stock
+  align and sign it. The 19 resource mappings use the values from the stock
   Fold8 framework and its product and vendor overlays. They cover the
   two-panel cutouts, status-bar insets, fold state IDs, close-to-sleep,
   reopen wake states, fold-lock support and unfold transitions.
   During guest preparation the resource APK is placed on a private tmpfs
-  so overlayfs can use it on the Fold8's casefold-capable storage.
+  so overlayfs can use it on the Fold8's casefold-capable storage. The
+  stock navigation settings use a 568dp breakpoint, between the
+  475dp cover and the 704dp inner display.
 - `Fold8OneUI95SystemUI.apk`. Run `patch_fold8_systemui.py` with the original
   S948BXXU6ZZKN SystemUI APK and an output DEX path. Feed the output to
   OneOS's `scripts/apk-replace-dex.py` as `classes.dex`. It restores
@@ -207,15 +211,23 @@ Build and embed these three assets in the `oneui95` set:
   `6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca`,
   `patch_fold8_services.py` and the output JAR path. The patch adds the
   Fold8 panel type in `DisplayContent.onRequestedOverrideConfigurationChanged`.
-  It sets `semDisplayDeviceType=0` on the inner panel (physical port 147)
+  It also applies the same panel type while computing the global display
+  configuration, where SystemUI reads it. It sets `semDisplayDeviceType=0` on the inner panel (physical port 147)
   and `5` on the cover (port 148) when either panel is the active default
   display. Unknown ports and other logical displays follow the guest's
   existing behavior. It uses `DisplayAddress.getPort()`, which is present
   in the 9.5 boot framework. The patched JAR retains the OneOS guards. Startup
   selects it only for the Fold8 and the pinned donor and validates the
-  bound file before starting the guest.
+  bound file before starting the guest. Internal display 1 cannot
+  host Home or system decorations. External displays retain their
+  regular DeX path.
+- `Fold8OneUI95Settings.apk`. Run `patch_fold8_settings.py` with the
+  original S948BXXU6ZZKN SecSettings APK and an output DEX path. Replace
+  `classes.dex` using `scripts/apk-replace-dex.py`. The patch exposes
+  the guest's native Continue apps on cover screen page, which reads
+  and writes the same fold-lock setting as the stock Fold8 page.
 
-Add the three names and hashes to the live One UI set manifest and supply
+Add the four names and hashes to the live One UI set manifest and supply
 their bytes when building the APK. The test manifest stores the reference
 build's hashes. Regenerate the set pin and asset index and run
 `scripts/check-staging-apk.py` on the result.
@@ -251,7 +263,7 @@ and Samsung's floating features.
 | Lock screen, AOD and wallpaper | The feature merge takes `LOCKSCREEN,ROTATIONAL,AOD`, the stock lid/rotatable wallpaper policy and the Fold8 camera-indicator geometry. The overlay restores the stock per-panel cutout and status-bar resources. |
 | Samsung Keyboard and half-fold | Both guest feature XMLs get the stock half-fold flag and keyboard fold UX version `81`. The framework overlay declares folded states 0 and 1, half-folded state 2 and open state 3. The guest's physical posture transitions need a device check. |
 | Rotation, continuity and window management | The donor compiles out Samsung's separate per-panel rotation, app continuity and freeform-window folding policies. These require ports of the affected call sites. The hardware state and basic fold-lock path are included. |
-| Flex Panel | The stock Fold8 and donor both compile the dedicated Flex Panel gates off. The patch carries the stock half-fold support. |
+| Flex Panel | Both include the activity. Stock SystemUI’s Flex Panel controller registers a device-state callback and settings observers. The guest controller omits those listeners, so the functional port is pending. |
 | Rear-screen and dual-screen modes | The stock framework's concurrent rear-display state is absent from the guest's device-state topology. Its configuration remains a separate port. |
 | Boot animation | The guest's Samsung renderer already supports main and sub QMGs. The boot preparation validates the stock inner (2448 × 1848) and cover (1248 × 1972) QMG pairs and mounts them over the guest's media directory. The renderer and the animations still need a physical boot check. |
 
