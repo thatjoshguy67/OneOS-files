@@ -1,0 +1,331 @@
+diff --git a/switcher/assets/guest_prepare.sh b/switcher/assets/guest_prepare.sh
+--- a/switcher/assets/guest_prepare.sh
++++ b/switcher/assets/guest_prepare.sh
+@@ -1781,7 +1781,7 @@
+            $BB chcon u:object_r:system_file:s0 "$fold8_systemui" &&
+            $BB mount --bind "$fold8_systemui" "$oneui_systemui"; then
+             $BB mount -o remount,bind,ro "$fold8_systemui" "$oneui_systemui" 2>/dev/null || true
+-            echo "One UI 9.5: restored the stock Fold8 landscape navigation feature"
++            echo "One UI 9.5: restored stock Fold8 landscape navigation and Quick Settings modes"
+         else
+             echo "!!! One UI 9.5: Fold8 SystemUI could not be mounted"
+         fi
+@@ -1851,13 +1851,19 @@
+     $BB mount --make-rslave "$ROOTFS/mnt" 2>/dev/null || true
+     echo "Guest /mnt: One UI's, a recursive bind (ONEOS_GUEST_OWN_MNT=${ONEOS_GUEST_OWN_MNT:-1})"
+ fi
+-if [ -f "$STAGE/services_patched.jar" ]; then
++guarded_services="$STAGE/services_patched.jar"
++fold8_services="$STAGE/Fold8OneUI95Services.jar"
++if [ "$ONEUI95_FOLD8" = 1 ] && [ -s "$fold8_services" ] &&
++   [ "$($BB sha256sum "$guarded_services" | cut -d' ' -f1)" = "6a23cb67c33f0d30e89f22e057666a91b7dcd18f68738b5b067a3f115dc135ca" ]; then
++    guarded_services="$fold8_services"
++fi
++if [ -f "$guarded_services" ]; then
+     $BB umount -l "$ROOTFS/system/framework/services.jar" 2>/dev/null || true
+-    $BB mount --bind "$STAGE/services_patched.jar" "$ROOTFS/system/framework/services.jar"
+-    echo "Bound services_patched.jar -> $ROOTFS/system/framework/services.jar"
++    $BB mount --bind "$guarded_services" "$ROOTFS/system/framework/services.jar"
++    echo "Bound ${guarded_services#"$STAGE/"} -> $ROOTFS/system/framework/services.jar"
+ fi
+ # The guarded jar is what keeps the guest away from One UI's data.
+-if [ "$(stat -c %d:%i "$ROOTFS/system/framework/services.jar")" != "$(stat -c %d:%i "$STAGE/services_patched.jar")" ]; then
++if [ "$(stat -c %d:%i "$ROOTFS/system/framework/services.jar")" != "$(stat -c %d:%i "$guarded_services")" ]; then
+     echo "ERROR: the guarded services.jar is not in place; not starting the guest"
+     exit 3
+ fi
+@@ -2833,7 +2839,7 @@
+ #   turns on OPPO's full compact window mode (compat mode, starting windows,
+ #   animations); the .lite variant was already on.
+ # - radio.support_5g (ONEOS_GUEST_5G=0 leaves it out): without it ColorOS
+-#   telephony picks 4G mode 22 and masks NR out (run 29: LTE only on SIM 2's carrier
++#   telephony picks 4G mode 22 and masks NR out (run 29: LTE only on mobily
+ #   while One UI showed 5G).
+ # - radio.support_dual_nr, only with support_5g (ONEOS_GUEST_DUAL_5G=0 leaves
+ #   it out): the Find N6 is a dual-5G phone (its my_product feature file
+@@ -5030,7 +5036,7 @@
+ # Preferred (attach) APN per SIM, from One UI: oneos_switch.sh recorded
+ # host_pref_apn ("slot mcc mnc apn") while One UI's telephony provider ran.
+ # Runs 41 and 42: with no preferred APN for SIM 2 (a fresh stage) Pixel's
+-# DataProfileManager took the carrier's first APN, web1, as the LTE attach APN;
++# DataProfileManager took the first mobily APN, web1, as the LTE attach APN;
+ # SIM 2 left LTE a second later and stayed on 3G for the session. One UI and
+ # ColorOS attach with web2. Picking it in Settings once the session runs is too
+ # late (the modem has given up on LTE by then), and that pick stays in the stage.
+@@ -5040,7 +5046,7 @@
+ # removed; and apn_id<sub> / explicit_set_called<sub> are dropped from
+ # preferred-apn. With no saved id, getPreferredApnId looks the APN up by the
+ # fields present (getString(field + sub)) and keeps it when exactly one APN
+-# matches (web2: one, row 8 in run 42); no match leaves the guest's own
++# matches (mobily web2: one, row 8 in run 42); no match leaves the guest's own
+ # choice, as before. Guest sub = slot + 1 (runs 41 and 42; the UI activator logs
+ # the guest's mapping). Android's SharedPreferences text XML; a .bak left by an
+ # interrupted write is what Android would load, so it is taken first. Never
+@@ -5146,26 +5152,26 @@
+ # Run 43, the first run with the import: One UI's LE keys are not in the layout
+ # the Pixel stack reads (LE_KEY_PID = 16-byte IRK, address type 00 or 01, the
+ # identity address). Every device's PID decoded to type 149, 181 or 13 and a
+-# made-up identity address (earbuds xx:xx -> yy:yy), and the stack used it anyway:
++# made-up identity address (Buds3 12:8c -> d9:78), and the stack used it anyway:
+ # Java and native sent A2DP, HFP and the pairing record itself to that address,
+ # so A2DP had no active peer (no Bluetooth audio session, PAL -19 on every
+ # write), HFP never got its service-level connection and SCO was refused. So
+ # the stage file is now One UI's through BT_SAN_AWK: if any device's LE_KEY_PID
+ # is not that layout with its own address, the file's LE layout is not the
+-# guest's (a car kit's LE_KEY_PENC was refused too), so every device loses its
++# guest's (the Haval's LE_KEY_PENC was refused too), so every device loses its
+ # LE records (LE_*, Le*, AddrType, ServiceLe, GATT caching, LE Audio, CSIP,
+ # hearing aid, VCP), LE-only devices (DevType 2) are dropped and dual-mode ones
+ # become BR/EDR (DevType 3 -> 1); BR/EDR link keys stay. An AOSP-layout file
+ # passes unchanged. If the filter or the check after it fails, the guest starts
+ # with no pairings (the stage's bt_config.conf and .bak deleted): never an
+ # unchecked copy, and never run 43's stage file (One UI's bad PID data plus the
+-# guest's own key for the earbuds). ONEOS_GUEST_BT_LE_SANITIZE=0 skips the LE part (since
++# guest's own Buds3 key). ONEOS_GUEST_BT_LE_SANITIZE=0 skips the LE part (since
+ # run 44 the link key check below still runs). diag_bt/ gets the shape of One
+ # UI's file and of the guest's previous one (BT_SHAPE_AWK: key names, value
+ # lengths, hex or not, small type values, where the device's own address sits
+ # in LE_KEY_PID), never a key value or a full address. Run 43 also had the
+-# imported link key rejected (HCI_ERR_AUTH_FAILURE at the earbuds' first
+-# connection); the earbuds then asked to pair again and the guest's stack
++# imported link key rejected (HCI_ERR_AUTH_FAILURE at the Buds3's first
++# connection); the Buds3 then asked to pair again and the guest's stack
+ # auto-accepted it, which replaced their key for this phone and broke One UI's
+ # pairing. Never pair One UI's devices in the guest (docs/pixel-guest.md).
+ # Run 44: One UI's link keys are not AOSP's. diag_bt/shape_oneui.txt has
+@@ -5828,7 +5834,7 @@
+ # tables; 0.4.58 limits the rule to what the phone itself sends, iif lo, so the
+ # hotspot's forwarded traffic keeps netd's tethering rules.)
+ # Usable = an IPv4 address AND a carrier. After One UI stops, wlan0 keeps One
+-# UI's DHCP address with the link down (run 28: 192.168.x.y on a "linkdown"
++# UI's DHCP address with the link down (run 28: 192.168.100.36 on a "linkdown"
+ # wlan0 all session); picking it sent all traffic to a dead link.
+ usable() {
+     [ "$(cat "/sys/class/net/$1/carrier" 2>/dev/null)" = 1 ] &&
+@@ -6941,6 +6947,9 @@
+                 camera_indicator = "SEC_FLOATING_FEATURE_LOCKSCREEN_CONFIG_PUNCHHOLE_VI"
+                 ai = "SEC_FLOATING_FEATURE_COMMON_CONFIG_AI_VERSION"
+                 scan = "SEC_FLOATING_FEATURE_CAMERA_DOCUMENTSCAN_SOLUTIONS"
++                separator = "SEC_FLOATING_FEATURE_AUDIO_CONFIG_MULTISOURCE_SEPARATOR"
++                call_audio = "SEC_FLOATING_FEATURE_AUDIO_CONFIG_AUDIO_ERASER"
++                set_feature(call_audio, "VOICE")
+                 set_feature(ai, "20271")
+             }
+             FILENAME != ARGV[3] {
+@@ -6957,6 +6966,8 @@
+                     set_feature(key, content)
+                 if (key == navigation && content ~ /^[A-Za-z0-9_|]+$/)
+                     set_feature(key, content)
++                if (key == separator && content ~ /^[A-Za-z0-9_.,{} ]+$/)
++                    host_separator = content
+                 if (key == camera_indicator && content ~ /^[A-Za-z0-9_.,:]+$/)
+                     set_feature(key, content)
+                 next
+@@ -6969,12 +6980,22 @@
+                     if (content !~ /(^|,)DOC_TYPE_DETECTOR(,|$)/)
+                         set_feature(key, content ",DOC_TYPE_DETECTOR")
+                 }
++                if (key == separator) {
++                    if (content != "")
++                        has_separator = 1
++                    else if (host_separator != "")
++                        next
++                }
+                 if (key in values) {
+                     if (!(key in written)) print_feature(key)
+                     written[key] = 1
+                     next
+                 }
+                 if ($0 ~ /<\/SecFloatingFeatureSet>/) {
++                    if (!has_separator && host_separator != "") {
++                        values[separator] = host_separator
++                        print_feature(separator)
++                    }
+                     for (i = 1; i <= count; i++)
+                         if (!(order[i] in written)) print_feature(order[i])
+                     closed = 1
+diff --git a/switcher/assets/guest_start.sh b/switcher/assets/guest_start.sh
+--- a/switcher/assets/guest_start.sh
++++ b/switcher/assets/guest_start.sh
+@@ -1999,35 +1999,82 @@
+         echo "$(date +%T) no Samsung Camera data folder after 300 s: /data/sec/camera not made"
+     ' </dev/null >> /data/sec_camera.log 2>&1 &
+ fi
+-# What folding does, set as soon as the guest's settings provider answers. The
+-# UI activator sets it too, but only once the UI is up: a Fold switched while
+-# folded started Pixel in state 2 (open; the hinge sensor had not reported
+-# yet), the first hinge event 4 s later folded it to state 0 with "sleep on
+-# fold", and the screen went off at 02:19:55, eleven seconds before the
+-# activator's setting (Z Fold8 Ultra, session 9455098f). Same values and rule
+-# as the activator (a stage set to sleep is kept). Only the guest's own
+-# provider is asked (its mount namespace is this one), each call bounded by
+-# timeout: One UI's services are not to be called during the switch.
++# The guest's settings provider can appear before the UI Activator. Read and
++# write these settings only after confirming the provider is in this namespace.
++FOLD_CONTINUE=0
++FOLD8_TASKBAR=0
+ if [ "$(cat /data/oneos_fold_mode 2>/dev/null)" = layout ] && [ "${ONEOS_GUEST_FOLD_CONTINUE:-1}" = 1 ]; then
+-    if [ -e /system/framework/oplus-services.jar ]; then FOLDN=continue_using_apps_when_folded; FOLDV=1; else FOLDN=fold_lock_behavior_setting; FOLDV=stay_awake_on_fold_key; fi
+-    $BB sh -c "
+-        SELF=\$(readlink /proc/self/ns/mnt); i=0
+-        while [ \$i -lt 2000 ]; do
+-            p=\$(timeout 2 dumpsys --pid settings 2>/dev/null | tr -dc 0-9)
+-            if [ -n \"\$p\" ] && [ \"\$(readlink /proc/\$p/ns/mnt 2>/dev/null)\" = \"\$SELF\" ]; then
+-                cur=\$(timeout 5 settings get system $FOLDN 2>/dev/null)
+-                case \"$FOLDN:\$cur\" in
+-                    continue_using_apps_when_folded:1|continue_using_apps_when_folded:2|fold_lock_behavior_setting:stay_awake_on_fold_key|fold_lock_behavior_setting:sleep_on_fold_key) ;;
+-                    *) timeout 5 settings put system $FOLDN $FOLDV 2>/dev/null ;;
+-                esac
+-                echo \"\$(date +%T) $FOLDN: \$cur -> \$(timeout 5 settings get system $FOLDN 2>/dev/null) (the guest's settings provider, pid \$p)\"
++    FOLD_CONTINUE=1
++fi
++if [ "${ONEOS_PROFILE:-}" = f8 ] && [ "$(getprop ro.product.model)" = SM-F971B ] &&
++   grep -qx 'ro.build.PDA=S948BXXU6ZZKN' /system/build.prop &&
++   [ ! -e /data/.oneui95-fold8-taskbar ] && [ ! -L /data/.oneui95-fold8-taskbar ]; then
++    FOLD8_TASKBAR=1
++fi
++if [ "$FOLD_CONTINUE" = 1 ] || [ "$FOLD8_TASKBAR" = 1 ]; then
++    if [ -e /system/framework/oplus-services.jar ]; then
++        FOLDN=continue_using_apps_when_folded
++        FOLDV=1
++    else
++        FOLDN=fold_lock_behavior_setting
++        FOLDV=stay_awake_on_fold_key
++    fi
++    $BB sh -c '
++        fold_continue=$1
++        fold_setting=$2
++        fold_value=$3
++        fold8_taskbar=$4
++        self=$(readlink /proc/self/ns/mnt)
++        i=0
++        while [ "$i" -lt 2000 ]; do
++            provider=$(timeout 2 dumpsys --pid settings 2>/dev/null | tr -dc 0-9)
++            if [ -n "$self" ] && [ -n "$provider" ] && [ "$(readlink /proc/$provider/ns/mnt 2>/dev/null)" = "$self" ]; then
++                if [ "$fold_continue" = 1 ]; then
++                    cur=$(timeout 5 settings get system "$fold_setting" 2>/dev/null)
++                    case "$fold_setting:$cur" in
++                        continue_using_apps_when_folded:1|continue_using_apps_when_folded:2|fold_lock_behavior_setting:stay_awake_on_fold_key|fold_lock_behavior_setting:sleep_on_fold_key|fold_lock_behavior_setting:selective_stay_awake_key) ;;
++                        *) timeout 5 settings put system "$fold_setting" "$fold_value" 2>/dev/null ;;
++                    esac
++                    echo "$(date +%T) $fold_setting: $cur -> $(timeout 5 settings get system "$fold_setting" 2>/dev/null) (guest provider $provider)"
++                fi
++                # Samsung reports availability by display and posture itself.
++                # Set the user preference once; subsequent choices are kept.
++                if [ "$fold8_taskbar" = 1 ] && timeout 5 settings put global task_bar 1 &&
++                   [ "$(timeout 5 settings get global task_bar 2>/dev/null)" = 1 ]; then
++                    : > /data/.oneui95-fold8-taskbar
++                    echo "$(date +%T) Fold8 taskbar enabled for this stage"
++                fi
+                 exit 0
+             fi
+-            i=\$((i + 1)); sleep 0.3
++            i=$((i + 1))
++            sleep 0.3
+         done
+-        echo \"\$(date +%T) $FOLDN: the guest's settings provider did not answer in 10 minutes; the UI activator sets it\"
+-    " </dev/null >> /data/fold_setting.log 2>&1 &
+-    echo "[Pivoted Root] Fold behaviour: $FOLDN=$FOLDV as soon as the guest's settings provider answers (/data/fold_setting.log)"
++        echo "$(date +%T) the guest settings provider did not answer"
++    ' oneos-fold-settings "$FOLD_CONTINUE" "$FOLDN" "$FOLDV" "$FOLD8_TASKBAR" </dev/null >> /data/fold_setting.log 2>&1 &
++    echo "[Pivoted Root] Fold preferences will be applied when the guest settings provider answers (/data/fold_setting.log)"
++fi
++# Samsung's Live Notifications developer setting belongs to the guest user.
++if [ "${ONEOS_PROFILE:-}" = f8 ] && [ "${ONEOS_GUEST_FORM:-}" = fold ] &&
++   grep -qx 'ro.build.PDA=S948BXXU6ZZKN' /system/build.prop 2>/dev/null; then
++    $BB sh -c '
++        key=enable_notification_nowbar_test
++        self=$(readlink /proc/self/ns/mnt)
++        i=0
++        while [ "$i" -lt 120 ]; do
++            pid=$(timeout 2 dumpsys --pid settings 2>/dev/null | tr -dc 0-9)
++            if [ -n "$self" ] && [ -n "$pid" ] &&
++               [ "$(readlink "/proc/$pid/ns/mnt" 2>/dev/null)" = "$self" ] &&
++               { [ "$(timeout 5 settings --user 0 get secure "$key" 2>/dev/null)" = 1 ] ||
++                 timeout 5 settings --user 0 put secure "$key" 1 2>/dev/null; } &&
++               [ "$(timeout 5 settings --user 0 get secure "$key" 2>/dev/null)" = 1 ]; then
++                echo "[Pivoted Root] Now Bar notification test mode enabled for guest user 0"
++                exit 0
++            fi
++            i=$((i + 1))
++            sleep 1
++        done
++        echo "[Pivoted Root] Could not enable Now Bar test mode in the guest Settings provider"
++    ' </dev/null &
+ fi
+ # vivo OriginOS's glass (real-time blur): SystemUI's material SDK
+ # (com.spacesystem.materialsdk.Material.resolveGlassSetting) and its plugins
+diff --git a/switcher/assets/oneos_switch.sh b/switcher/assets/oneos_switch.sh
+--- a/switcher/assets/oneos_switch.sh
++++ b/switcher/assets/oneos_switch.sh
+@@ -1275,7 +1275,7 @@
+ # language tag (en-US, zh-Hans-CN): the file may come from an older stage.
+ # Without one (a fresh stage): One UI's current language, its system_locales.
+ # persist.sys.locale is only One UI's boot default and can differ: run 41 got
+-# another language (the guest booted in it) while One UI showed en-GB,en-US. One UI's
++# ar-SA (the guest booted in Arabic) while One UI showed en-GB,en-US. One UI's
+ # framework still runs here, so settings answers.
+ GL=$(head -n 1 "$STAGE/guest_locale" 2>/dev/null) GLW="saved guest locale"
+ case "$GL" in
+@@ -1332,7 +1332,7 @@
+ case "$HMD" in 0|1) echo "$HMD" ;; *) echo "" ;; esac > "$STAGE/host_mobile_data"
+ # One UI's preferred (attach) APN per SIM slot, for guest_prepare.sh (guest
+ # attach APN, a Pixel guest only: guards.txt without oplus-services_patched.jar).
+-# Runs 41 and 42: SIM 2 attached with the carrier's web1 in the guest and fell to 3G;
++# Runs 41 and 42: SIM 2 attached with mobily's web1 in the guest and fell to 3G;
+ # One UI uses web2. Read only, from One UI's telephony provider (root's content
+ # queries): one "slot mcc mnc apn" line per SIM that has one, nothing when the
+ # provider gives no answer (the guest then keeps its own). ONEOS_GUEST_APN=0
+@@ -2968,7 +2968,7 @@
+                 if [ $GUEST_OPLUS = 1 ]; then FOLDN=continue_using_apps_when_folded; else FOLDN=fold_lock_behavior_setting; fi
+                 FOLDK=\$($BB nsenter -t \$PID -m /system/bin/sh /data/oneos_genv.sh /system/bin/settings get system \$FOLDN 2>/dev/null)
+                 case \"${ONEOS_GUEST_FOLD_CONTINUE:-1}:\$FOLDN:\$FOLDK\" in
+-                    0:*|1:continue_using_apps_when_folded:1|1:continue_using_apps_when_folded:2|1:fold_lock_behavior_setting:stay_awake_on_fold_key|1:fold_lock_behavior_setting:sleep_on_fold_key) ;;
++                    0:*|1:continue_using_apps_when_folded:1|1:continue_using_apps_when_folded:2|1:fold_lock_behavior_setting:stay_awake_on_fold_key|1:fold_lock_behavior_setting:sleep_on_fold_key|1:fold_lock_behavior_setting:selective_stay_awake_key) ;;
+                     1:continue_using_apps_when_folded:*) $BB nsenter -t \$PID -m /system/bin/sh /data/oneos_genv.sh /system/bin/settings put system continue_using_apps_when_folded 1 2>/dev/null ;;
+                     *) $BB nsenter -t \$PID -m /system/bin/sh /data/oneos_genv.sh /system/bin/settings put system fold_lock_behavior_setting stay_awake_on_fold_key 2>/dev/null ;;
+                 esac
+diff --git a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+--- a/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
++++ b/app-android/core/model/src/main/kotlin/com/fahadali/oneos/core/model/PackageSets.kt
+@@ -916,6 +916,7 @@
+         files = listOf(
+             PackageFile("Fold8OneUI95Framework.apk", FileRole.RRO),
+             PackageFile("Fold8OneUI95SystemUI.apk", FileRole.GUEST_FIX),
++            PackageFile("Fold8OneUI95Services.jar", FileRole.GUEST_FIX),
+             PackageFile("services_patched.jar", FileRole.GUARD_JAR),
+             PackageFile("framework_patched.jar", FileRole.GUARD_JAR),
+             PackageFile("telephony-common_patched.jar", FileRole.GUARD_JAR),
+@@ -934,7 +935,7 @@
+         ) + (COMMON_PAYLOADS + listOf("bt", "nfcservices", "gmssystem", "npumanager", "telephonycore", "webapp")).map { PackageFile("${it}_payload.img", FileRole.APEX_PAYLOAD) }
+             + PackageFile(CELLBROADCAST, FileRole.APEX_PAYLOAD),
+         omitted = listOf(TETHERING),
+-        approxBytes = 584_720_823L + 77_086_720L + 142_928_585L,
++        approxBytes = 584_720_823L + 77_086_720L + 174_338_684L,
+         hasReturnApp = true,
+     )
+ 
+diff --git a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+--- a/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
++++ b/app-android/core/model/src/test/kotlin/com/fahadali/oneos/core/model/PackageSetsTest.kt
+@@ -93,7 +93,7 @@
+         assertEquals("oneui95", oneui.id)
+         assertEquals(Images.ID_ONEUI95, oneui.imageId)
+         assertEquals("out/overlays_oneui95_r9", oneui.sourceDir)
+-        assertEquals(39, oneui.files.size) // Includes the two Fold8 display payloads.
++        assertEquals(40, oneui.files.size) // Includes the three Fold8 display payloads.
+         assertEquals(22, oneui.files.count { it.role == FileRole.APEX_PAYLOAD })
+         assertEquals(listOf(PackageSets.TETHERING), oneui.omitted)
+         assertEquals(
+diff --git a/app-android/core/model/src/test/resources/packages/oneui95.sha256 b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+--- a/app-android/core/model/src/test/resources/packages/oneui95.sha256
++++ b/app-android/core/model/src/test/resources/packages/oneui95.sha256
+@@ -37,5 +37,6 @@
+ ebf0cd3e7f36802c9b86c07d14a316031cda925f6f9a28dbd359b5b390fd25ee  webapp_payload.img
+ ceb5bb5afa77a123327709db62f4c712bdbd63ba4376a5c7d718065867e86049  wifi_payload.img
+ ebe75fd4c0835d95e9013d7b0af8d6526c14572c6b8e920a46efff7e294061fe  samcam_a_oneui.tar
+-0e2274b003b0a4c28e06d4542a651b70f16d148548e620d54a8db77b8c940379  Fold8OneUI95Framework.apk
+-59a1d5562a563e3efb481be160c2d8b996925831f24b6592e702d1a3716ee2fa  Fold8OneUI95SystemUI.apk
++12f857178bb194e800fc4f17817cc13a9a8b3493bf2c3d6156acb757020320fc  Fold8OneUI95Framework.apk
++0c12d4fff5abf9169826fabc79fd77b702b668ef7c4cf0fa56c51abf7c3fe601  Fold8OneUI95SystemUI.apk
++d9a17870e5a8b06009bdb40f970133eecdad645a3af7c3bcbbfd9b6d2f18bc71  Fold8OneUI95Services.jar

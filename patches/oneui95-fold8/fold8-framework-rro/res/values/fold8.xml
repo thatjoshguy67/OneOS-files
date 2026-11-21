@@ -6,6 +6,10 @@
     <integer-array name="config_foldedDeviceStates"><item>0</item><item>1</item></integer-array>
     <integer-array name="config_halfFoldedDeviceStates"><item>2</item></integer-array>
     <integer-array name="config_openDeviceStates"><item>3</item></integer-array>
+    <integer-array name="config_deviceStatesOnWhichToSleep"><item>0</item></integer-array>
+    <integer-array name="config_deviceStatesOnWhichToWakeUp"><item>2</item><item>3</item></integer-array>
+    <bool name="config_fold_lock_behavior">true</bool>
+    <bool name="config_unfoldTransitionEnabled">true</bool>
     <dimen name="status_bar_height_landscape">30dp</dimen>
     <dimen name="status_bar_height_portrait">110px</dimen>
     <dimen name="status_bar_camera_bottom_margin">10px</dimen>
