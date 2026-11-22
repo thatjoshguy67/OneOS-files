@@ -16,6 +16,11 @@ revision corresponding to the supplied APK. The upstream `v0.5.33` tag
 currently points to the previous commit. This patch carries the r24
 Fold8 stack onto the release with its new guest storage payloads.
 
+The [r24 payload release](https://github.com/thatjoshguy67/OneOS-files/releases/tag/fold8-oneui95-r24)
+contains all eight added or modified files and the complete `oneui95.sha256`
+manifest. The patch records their exact download locations and sizes.
+Unmodified files use the existing upstream download sources.
+
 Use the release APK's `assets/oneos/sets/oneui95.sha256` to obtain and
 verify `services_patched.jar`, `vold_patched` and
 `service.incremental_patched.so`. Reuse r24's four Fold8 APKs and its
